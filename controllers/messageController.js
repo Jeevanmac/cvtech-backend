@@ -17,6 +17,15 @@ const sendMessage = async (req, res) => {
             text
         });
 
+        // Real-time Emission
+        const { notifyUser, notifyAdmins } = require('../socket/socketHandler');
+        if (receiverId) {
+            notifyUser(receiverId, 'new_message', message);
+        } else {
+            // If no receiver, it's for admins
+            notifyAdmins('new_message', { ...message.toObject(), sender: req.user });
+        }
+
         res.status(201).json({ success: true, message });
     } catch (err) {
         console.error(err);

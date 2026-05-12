@@ -82,6 +82,8 @@ app.use((err, req, res, next) => {
 
 // Database Connection & Server Initialization
 const PORT = process.env.PORT || 5000;
+const http = require('http');
+const { initSocket } = require('./socket/socketHandler');
 
 const mongoOptions = {
     serverSelectionTimeoutMS: 10000,
@@ -92,7 +94,11 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
     .then(() => {
         logger.info('✅ MongoDB Atlas Connected Successfully.');
         console.log('✅ MongoDB Atlas Connected Successfully.');
-        app.listen(PORT, () => {
+        
+        const server = http.createServer(app);
+        initSocket(server);
+        
+        server.listen(PORT, () => {
             console.log(`🚀 CV TECH Monolith running on http://localhost:${PORT}`);
             logger.info(`CV TECH Monolith running on port ${PORT}`);
         });
