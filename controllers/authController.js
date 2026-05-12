@@ -1,0 +1,195 @@
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const axios = require('axios');
+const jwt = require('jsonwebtoken'); // Added for manual verification in refresh
+const logger = require('../utils/logger');
+const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+
+/**
+ * ReCAPTCHA Verification Engine Utility
+ */
+const verifyRecaptcha = async (token) => {
+    if (process.env.NODE_ENV === 'development') {
+        logger.info('🛡️ reCAPTCHA verification bypassed for development environment.');
+        return true;
+    }
+    if (!token) return false;
+    try {
+        const secret = process.env.RECAPTCHA_SECRET_KEY;
+        const response = await axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`);
+        return response.data.success;
+    } catch(err) {
+        logger.error(`ReCAPTCHA validation ping failed structurally: ${err.message}`);
+        return false;
+    }
+};
+
+/**
+ * @desc    Register a new user
+ * @route   POST /api/auth/signup
+ */
+const signup = async (req, res) => {
+    try {
+        const { firstName, lastName, email, password, recaptchaToken } = req.body;
+
+        if (!firstName || !lastName || !email || !password || !recaptchaToken) {
+            return res.status(400).json({ success: false, message: 'Please provide all required fields.' });
+        }
+
+        const isHuman = await verifyRecaptcha(recaptchaToken);
+        if (!isHuman) {
+            logger.warn(`Automated entity blocked at signup registration attempting email: ${email}`);
+            return res.status(403).json({ success: false, message: 'Automated traversal blocked.'});
+        }
+
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: 'User already exists with this email' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const user = await User.create({
+            firstName,
+            lastName,
+            email,
+            password: hashedPassword
+        });
+
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        res.status(201).json({
+            success: true,
+            accessToken,
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        logger.error(`Signup fault: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Server Error during signup' });
+    }
+};
+
+/**
+ * @desc    Authenticate User & get tokens
+ * @route   POST /api/auth/login
+ */
+const login = async (req, res) => {
+    try {
+        const { email, password, recaptchaToken } = req.body;
+
+        const isDev = process.env.NODE_ENV === 'development';
+        
+        if (!email || !password || (!recaptchaToken && !isDev)) {
+            return res.status(400).json({ success: false, message: 'Please provide email, password and reCAPTCHA token.' });
+        }
+
+        const isHuman = await verifyRecaptcha(recaptchaToken);
+        if (!isHuman) {
+            logger.warn(`Automated script attack repelled on identity mapping: ${email}`);
+            return res.status(403).json({ success: false, message: 'Bot protection engaged.'});
+        }
+
+        const user = await User.findOne({ email }).select('+password');
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        res.status(200).json({
+            success: true,
+            accessToken,
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        logger.error(`Authentication structural drop: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Server Error during login' });
+    }
+};
+
+/**
+ * @desc    Obtain a new access token using a valid refresh token from body
+ * @route   POST /api/auth/refresh
+ */
+const refreshTokenHandler = async (req, res) => {
+    try {
+        const refreshToken = req.cookies?.refreshToken;
+
+        if (!refreshToken) {
+            return res.status(401).json({ success: false, message: 'No refresh token provided' });
+        }
+
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'User no longer exists' });
+        }
+
+        const accessToken = generateAccessToken(user);
+
+        res.status(200).json({ 
+            success: true, 
+            accessToken,
+            message: 'Access token refreshed successfully' 
+        });
+
+    } catch (error) {
+        logger.error(`Token rotation mapping drop: ${error.message}`);
+        return res.status(403).json({ success: false, message: 'Invalid or Expired Refresh Token' });
+    }
+};
+
+/**
+ * @desc    Logout User
+ * @route   POST /api/auth/logout
+ */
+const logout = (req, res) => {
+    res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+    });
+    res.status(200).json({ success: true, message: 'Successfully logged out. Identity discarded.' });
+};
+
+module.exports = {
+    signup,
+    login,
+    refreshTokenHandler,
+    logout
+};
