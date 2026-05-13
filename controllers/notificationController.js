@@ -21,7 +21,7 @@ const getNotifications = async (req, res) => {
 
         const notifications = rawNotifications.map(n => {
             const nObj = n.toObject();
-            nObj.isRead = n.readBy.includes(req.user._id);
+            nObj.isRead = (n.readBy && Array.isArray(n.readBy)) ? n.readBy.includes(req.user._id) : false;
             return nObj;
         });
 
