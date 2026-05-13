@@ -17,6 +17,7 @@ const applyForRole = async (req, res) => {
         }
 
         const application = await Application.create({
+            userId: req.user?._id || null,
             role, firstName, lastName, email, portfolioUrl, githubUrl, linkedinUrl, message, resumeKey
         });
 
@@ -113,6 +114,17 @@ const updateApplicationStatus = async (req, res) => {
 
         if (!application) {
             return res.status(404).json({ success: false, message: 'Application node not found.' });
+        }
+
+        // Notify applicant if they have an account
+        if (application.userId) {
+            await createNotification({
+                recipient: application.userId,
+                type: 'application_update',
+                title: '💼 Application Status Updated',
+                message: `Your application for ${application.role} has been updated to: ${status.toUpperCase()}.`,
+                link: '/dashboard'
+            });
         }
 
         res.status(200).json({ success: true, application });

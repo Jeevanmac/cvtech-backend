@@ -118,4 +118,28 @@ const isSuperAdmin = (req, res, next) => {
     next();
 };
 
-module.exports = { protect, isAdmin, isSuperuser, isSuperAdmin };
+/**
+ * Optional Authentication Middleware
+ * Decodes the token if present, but allows the request to continue if not.
+ */
+const optionalProtect = async (req, res, next) => {
+    try {
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+            token = req.headers.authorization.split(" ")[1];
+        }
+
+        if (!token) return next();
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const currentUser = await User.findById(decoded.id);
+        if (currentUser) {
+            req.user = currentUser;
+        }
+        next();
+    } catch (error) {
+        next(); // Proceed as guest even on error
+    }
+};
+
+module.exports = { protect, optionalProtect, isAdmin, isSuperuser, isSuperAdmin };

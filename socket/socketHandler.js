@@ -29,6 +29,9 @@ const initSocket = (server) => {
             if (data?.role === 'admin') {
                 socket.join('admin');
                 logger.info(`Socket ${socket.id} joined administrative room.`);
+            } else if (data?.role === 'user') {
+                socket.join('user');
+                logger.info(`Socket ${socket.id} joined user room.`);
             }
         });
 

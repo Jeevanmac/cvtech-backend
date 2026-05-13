@@ -109,6 +109,14 @@ const updateProject = async (req, res) => {
             link: `/admin/projects`
         });
 
+        await createNotification({
+            recipientRole: 'user',
+            type: 'system',
+            title: 'Architecture Asset Updated',
+            message: `Refinements have been applied to "${project.title}". Check the latest specs.`,
+            link: `/projects/${project._id}`
+        });
+
         res.status(200).json({ success: true, project });
     } catch (error) {
         console.error(error);

@@ -15,11 +15,20 @@ const getNotifications = async (req, res) => {
             ]
         };
 
-        const notifications = await Notification.find(query)
+        const rawNotifications = await Notification.find(query)
             .sort('-createdAt')
             .limit(50);
 
-        const unreadCount = await Notification.countDocuments({ ...query, isRead: false });
+        const notifications = rawNotifications.map(n => {
+            const nObj = n.toObject();
+            nObj.isRead = n.readBy.includes(req.user._id);
+            return nObj;
+        });
+
+        const unreadCount = await Notification.countDocuments({ 
+            ...query, 
+            readBy: { $ne: req.user._id } 
+        });
 
         res.status(200).json({ 
             success: true, 
@@ -46,7 +55,7 @@ const markAsRead = async (req, res) => {
                     { recipientRole: req.user.role }
                 ]
             },
-            { isRead: true },
+            { $addToSet: { readBy: req.user._id } },
             { new: true }
         );
 
@@ -54,7 +63,10 @@ const markAsRead = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Notification not found.' });
         }
 
-        res.status(200).json({ success: true, notification });
+        const nObj = notification.toObject();
+        nObj.isRead = true;
+
+        res.status(200).json({ success: true, notification: nObj });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Sync failure.' });
     }
@@ -73,9 +85,9 @@ const markAllAsRead = async (req, res) => {
                     { recipient: req.user._id },
                     { recipientRole: req.user.role }
                 ],
-                isRead: false
+                readBy: { $ne: req.user._id }
             },
-            { isRead: true }
+            { $addToSet: { readBy: req.user._id } }
         );
 
         res.status(200).json({ success: true, message: 'Registry synchronized.' });
@@ -128,7 +140,9 @@ const createNotification = async ({ recipient, recipientRole, type, title, messa
         // For now, we rely on polling/frontend logic or a global emitter
         if (global.io) {
             const room = recipient ? recipient.toString() : recipientRole;
-            global.io.to(room).emit('new_notification', notification);
+            const nObj = notification.toObject();
+            nObj.isRead = false;
+            global.io.to(room).emit('new_notification', nObj);
         }
 
         return notification;

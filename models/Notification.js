@@ -37,10 +37,10 @@ const notificationSchema = new mongoose.Schema({
         type: String,
         required: false
     },
-    isRead: {
-        type: Boolean,
-        default: false
-    },
+    readBy: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
     metadata: {
         type: Object,
         default: {}
@@ -52,6 +52,6 @@ const notificationSchema = new mongoose.Schema({
 // Indexing for performance
 notificationSchema.index({ recipient: 1, createdAt: -1 });
 notificationSchema.index({ recipientRole: 1, createdAt: -1 });
-notificationSchema.index({ isRead: 1 });
+notificationSchema.index({ readBy: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

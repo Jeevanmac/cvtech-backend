@@ -1,5 +1,6 @@
 const Job = require('../models/Job');
 const logger = require('../utils/logger');
+const { createNotification } = require('./notificationController');
 
 /**
  * @desc    Create a new job role
@@ -10,6 +11,16 @@ const createJob = async (req, res) => {
     try {
         const job = await Job.create(req.body);
         logger.info(`🚨 New Job Created: ${job.title} in ${job.department}`);
+
+        // Notify Users about new opportunity
+        await createNotification({
+            recipientRole: 'user',
+            type: 'job_posted',
+            title: '🚀 New Opportunity Available',
+            message: `${job.title} role is now live in the ${job.department} department.`,
+            link: '/careers'
+        });
+
         res.status(201).json({ success: true, job });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });

@@ -7,11 +7,11 @@ const {
     updateApplicationStatus,
     deleteApplication
 } = require('../controllers/careerController');
-const { protect, isAdmin } = require('../middleware/auth');
+const { protect, isAdmin, optionalProtect } = require('../middleware/auth');
 
-// Public application endpoint
-router.post('/apply', applyForRole);
-router.get('/upload-url', getResumeUploadUrl);
+// Public application endpoint (with optional identity capture)
+router.post('/apply', optionalProtect, applyForRole);
+router.get('/upload-url', optionalProtect, getResumeUploadUrl);
 
 // Admin-only application review
 router.get('/applications', protect, isAdmin, getApplications);

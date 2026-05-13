@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const applicationSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: false
+    },
     role: {
         type: String,
         required: [true, 'Role context is required for identity mapping.']
