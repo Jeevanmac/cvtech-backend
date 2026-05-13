@@ -122,6 +122,26 @@ const deleteNotification = async (req, res) => {
 };
 
 /**
+ * @desc    Delete all notifications for the user
+ * @route   DELETE /api/notifications/purge-all
+ * @access  Private
+ */
+const deleteAllNotifications = async (req, res) => {
+    try {
+        await Notification.deleteMany({
+            $or: [
+                { recipient: req.user._id },
+                { recipientRole: req.user.role }
+            ]
+        });
+
+        res.status(200).json({ success: true, message: 'All notifications purged from the registry.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Mass purge sequence failed.' });
+    }
+};
+
+/**
  * Helper to create a notification (Internal use)
  */
 const createNotification = async ({ recipient, recipientRole, type, title, message, link, metadata }) => {
@@ -157,5 +177,6 @@ module.exports = {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
     createNotification
 };
