@@ -63,6 +63,7 @@ const createOrder = async (req, res) => {
         };
 
         const rzpOrder = await razorpay.orders.create(options);
+        logger.info(`[RAZORPAY] Order Intent created: ${rzpOrder.id} for amount: ${rzpOrder.amount} paise`);
 
         if (!rzpOrder) return res.status(500).json({ success: false, message: 'Razorpay initialization failed' });
 
@@ -74,6 +75,7 @@ const createOrder = async (req, res) => {
             totalAmount: totalAmount,
             status: 'pending'
         });
+        logger.info(`[DATABASE] Pending Order shell saved: ${newOrder._id} (RZP_ID: ${rzpOrder.id})`);
 
         res.status(200).json({ success: true, orderId: rzpOrder.id, amount: rzpOrder.amount, dbOrderId: newOrder._id });
 
@@ -91,17 +93,22 @@ const createOrder = async (req, res) => {
 const verifyPayment = async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        logger.info(`[RAZORPAY] Verification Payload received: Order ${razorpay_order_id}, Payment ${razorpay_payment_id}`);
 
         // Construct Expected Signature based on SHA256 HMAC hash structure defined natively by Razorpay spec
         const body = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_SECRET)
                                         .update(body.toString())
                                         .digest('hex');
+        
+        logger.info(`[RAZORPAY] Signature Validation: Expected ${expectedSignature} | Received ${razorpay_signature}`);
 
         if (expectedSignature !== razorpay_signature) {
+            logger.error(`[RAZORPAY] Integrity Violation: Signature mismatch for Order ${razorpay_order_id}`);
             await Order.findOneAndUpdate({ razorpayOrderId: razorpay_order_id }, { status: 'failed' });
             return res.status(400).json({ success: false, message: 'Payment mathematical signature mismatch. Invalidated.' });
         }
+        logger.info(`[RAZORPAY] Cryptographic integrity verified for Order ${razorpay_order_id}`);
 
         // Check for idempotency to prevent duplicate purchase analytics
         const existingOrder = await Order.findOne({ razorpayOrderId: razorpay_order_id });
@@ -119,6 +126,7 @@ const verifyPayment = async (req, res) => {
             },
             { new: true }
         );
+        logger.info(`[DATABASE] Order ${order._id} status updated to SUCCESS`);
 
         // Bind purchases securely to the tracking model of the user to build their dashboard later
         for (let projInfo of order.projects) {
@@ -131,6 +139,7 @@ const verifyPayment = async (req, res) => {
                     } 
                 }
             });
+            logger.info(`[DATABASE] Access unlocked for Project ${projInfo.projectId} to User ${req.user._id}`);
         }
 
         // Increment Global Purchase Counts dynamically for Fallback Heuristics Native Analytics
