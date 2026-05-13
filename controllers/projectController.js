@@ -2,6 +2,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const { generateUploadUrl } = require('../utils/s3');
 const generateSignedUrl = require('../utils/generateSignedUrl');
+const { createNotification } = require('./notificationController');
 
 /**
  * @desc    Generate an AWS S3 Pre-signed URL for direct ZIP upload
@@ -19,6 +20,9 @@ const getPresignedUploadUrl = async (req, res) => {
         if (fileType && fileType.startsWith('image/')) {
             contentType = fileType;
             folder = 'images';
+        } else if (fileType && fileType.startsWith('video/')) {
+            contentType = fileType;
+            folder = 'videos';
         }
 
         const { signedUrl, key } = await generateUploadUrl(fileName, contentType, folder);
@@ -43,14 +47,37 @@ const getPresignedUploadUrl = async (req, res) => {
  */
 const createProject = async (req, res) => {
     try {
-        const { title, description, price, category, techStack, difficulty, imageKeys, zipFileKey, documentationUrl, pptUrl, demoVideoUrl } = req.body;
+        const { 
+            title, description, price, category, techStack, difficulty, 
+            imageKeys, zipFileKey, documentationUrl, pptUrl, demoVideoUrl,
+            tags, featured, status, deploymentStatus, externalLinks
+        } = req.body;
 
         if (!title || !description || !price || !category || !techStack || !zipFileKey) {
             return res.status(400).json({ success: false, message: 'Provide all required standard fields and the secure ZIP file key.' });
         }
 
         const project = await Project.create({
-            title, description, price, category, techStack, difficulty, imageKeys, zipFileKey, documentationUrl, pptUrl, demoVideoUrl
+            title, description, price, category, techStack, difficulty, 
+            imageKeys, zipFileKey, documentationUrl, pptUrl, demoVideoUrl,
+            tags, featured, status, deploymentStatus, externalLinks
+        });
+
+        // Trigger Notifications
+        await createNotification({
+            recipientRole: 'user',
+            type: 'system',
+            title: 'New Project Deployment',
+            message: `New asset "${title}" is now available in the vault.`,
+            link: `/projects/${project._id}`
+        });
+
+        await createNotification({
+            recipientRole: 'admin',
+            type: 'system',
+            title: 'Asset Registered',
+            message: `"${title}" has been successfully indexed in the project vault.`,
+            link: `/admin/projects`
         });
 
         console.log(`[DB] Project created: ${project._id} with ${imageKeys?.length || 0} images`);
@@ -58,6 +85,62 @@ const createProject = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server Error during project creation' });
+    }
+};
+
+/**
+ * @desc    Update an existing project
+ * @route   PUT /api/projects/:id
+ * @access  Private/Admin
+ */
+const updateProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const project = await Project.findByIdAndUpdate(id, req.body, { new: true });
+
+        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+        // Trigger Notification
+        await createNotification({
+            recipientRole: 'admin',
+            type: 'system',
+            title: 'Asset Updated',
+            message: `Project "${project.title}" has been successfully synchronized.`,
+            link: `/admin/projects`
+        });
+
+        res.status(200).json({ success: true, project });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Update sequence failure' });
+    }
+};
+
+/**
+ * @desc    Permanently delete a project
+ * @route   DELETE /api/projects/:id
+ * @access  Private/Admin
+ */
+const deleteProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const project = await Project.findByIdAndDelete(id);
+
+        if (!project) return res.status(404).json({ success: false, message: 'Project already purged' });
+
+        // Trigger Notification
+        await createNotification({
+            recipientRole: 'admin',
+            type: 'system',
+            title: 'Asset Purged',
+            message: `Project "${project.title}" has been permanently removed from the vault.`,
+            link: `/admin/projects`
+        });
+
+        res.status(200).json({ success: true, message: 'Project purged successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Purge sequence failure' });
     }
 };
 
@@ -190,5 +273,7 @@ module.exports = {
     createProject,
     getAllProjects,
     getProjectById,
-    getRecommendations
+    getRecommendations,
+    updateProject,
+    deleteProject
 };

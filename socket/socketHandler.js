@@ -58,7 +58,7 @@ const notifyUser = (userId, event, data) => {
 const notifyAdmins = (event, data) => {
     if (io) {
         // Admin room should be joined by admin users
-        io.to('admins').emit(event, data);
+        io.to('admin').emit(event, data);
     }
 };
 

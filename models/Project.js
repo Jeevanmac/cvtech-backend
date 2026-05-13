@@ -49,6 +49,25 @@ const projectSchema = new mongoose.Schema(
         purchaseCount: {
             type: Number,
             default: 0 // Baseline AI fallback heuristics rank metric tracking
+        },
+        tags: [String],
+        featured: {
+            type: Boolean,
+            default: false
+        },
+        status: {
+            type: String,
+            enum: ['Active', 'Draft', 'Archived'],
+            default: 'Active'
+        },
+        deploymentStatus: {
+            type: String,
+            default: 'Ready'
+        },
+        externalLinks: {
+            demo: String,
+            repo: String,
+            docs: String
         }
     },
     { timestamps: true }
