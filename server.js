@@ -11,6 +11,7 @@ const { generalLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const careerRoutes = require('./routes/careerRoutes');
+const jobRoutes = require('./routes/jobRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const userProfileRoutes = require('./routes/userProfileRoutes');
 const couponRoutes = require('./routes/couponRoutes');
@@ -46,6 +47,7 @@ app.use(cors({
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/careers', careerRoutes);
+app.use('/api/jobs', jobRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/profile', userProfileRoutes);
 app.use('/api/coupons', couponRoutes);
