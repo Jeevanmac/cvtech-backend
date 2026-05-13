@@ -1,5 +1,6 @@
 const Application = require('../models/Application');
 const logger = require('../utils/logger');
+const { generateUploadUrl, generateDownloadUrl } = require('../utils/s3');
 
 /**
  * @desc    Submit a new career application
@@ -8,14 +9,14 @@ const logger = require('../utils/logger');
  */
 const applyForRole = async (req, res) => {
     try {
-        const { role, firstName, lastName, email, portfolioUrl, githubUrl, linkedinUrl, message } = req.body;
+        const { role, firstName, lastName, email, portfolioUrl, githubUrl, linkedinUrl, message, resumeKey } = req.body;
 
-        if (!role || !firstName || !lastName || !email || !portfolioUrl) {
+        if (!role || !firstName || !lastName || !email) {
             return res.status(400).json({ success: false, message: 'Strategic identity fields are missing.' });
         }
 
         const application = await Application.create({
-            role, firstName, lastName, email, portfolioUrl, githubUrl, linkedinUrl, message
+            role, firstName, lastName, email, portfolioUrl, githubUrl, linkedinUrl, message, resumeKey
         });
 
         logger.info(`🚨 New Application Received: ${firstName} ${lastName} for role ${role}`);
@@ -41,14 +42,99 @@ const applyForRole = async (req, res) => {
  */
 const getApplications = async (req, res) => {
     try {
-        const applications = await Application.find().sort('-createdAt');
+        const rawApplications = await Application.find().sort('-createdAt');
+        
+        const applications = await Promise.all(rawApplications.map(async (app) => {
+            const appObj = app.toObject();
+            if (appObj.resumeKey) {
+                appObj.resumeUrl = await generateDownloadUrl(appObj.resumeKey);
+            }
+            return appObj;
+        }));
+
         res.status(200).json({ success: true, applications });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Registry retrieval fault.' });
     }
 };
 
+/**
+ * @desc    Generate a pre-signed URL for direct resume upload
+ * @route   GET /api/careers/upload-url?fileName=resume.pdf&fileType=application/pdf
+ * @access  Public
+ */
+const getResumeUploadUrl = async (req, res) => {
+    try {
+        const { fileName, fileType } = req.query;
+        if (!fileName || !fileType) {
+            return res.status(400).json({ success: false, message: 'FileName and FileType are required.' });
+        }
+
+        const { signedUrl, key } = await generateUploadUrl(fileName, fileType, 'resumes');
+
+        res.status(200).json({
+            success: true,
+            uploadUrl: signedUrl,
+            key: key
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Failed to generate secure upload channel.' });
+    }
+};
+
+/**
+ * @desc    Update application status
+ * @route   PATCH /api/careers/applications/:id/status
+ * @access  Private/Admin
+ */
+const updateApplicationStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['pending', 'reviewing', 'interviewing', 'accepted', 'rejected'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Invalid status tier.' });
+        }
+
+        const application = await Application.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+        );
+
+        if (!application) {
+            return res.status(404).json({ success: false, message: 'Application node not found.' });
+        }
+
+        res.status(200).json({ success: true, application });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Status update fault.' });
+    }
+};
+
+/**
+ * @desc    Permanently delete an application
+ * @route   DELETE /api/careers/applications/:id
+ * @access  Private/Admin
+ */
+const deleteApplication = async (req, res) => {
+    try {
+        const application = await Application.findByIdAndDelete(req.params.id);
+        if (!application) {
+            return res.status(404).json({ success: false, message: 'Application node already purged.' });
+        }
+
+        // Note: S3 file deletion could be added here if needed using application.resumeKey
+        
+        res.status(200).json({ success: true, message: 'Identity permanently purged from the registry.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Deletion sequence failed.' });
+    }
+};
+
 module.exports = {
     applyForRole,
-    getApplications
+    getApplications,
+    getResumeUploadUrl,
+    updateApplicationStatus,
+    deleteApplication
 };

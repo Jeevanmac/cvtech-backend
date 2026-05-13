@@ -20,12 +20,15 @@ const applicationSchema = new mongoose.Schema({
     },
     portfolioUrl: {
         type: String,
-        required: [true, 'Portfolio/Project reference is mandatory.']
+        required: false
     },
     githubUrl: {
         type: String
     },
     linkedinUrl: {
+        type: String
+    },
+    resumeKey: {
         type: String
     },
     message: {
