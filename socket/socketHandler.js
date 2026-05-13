@@ -14,14 +14,21 @@ const initSocket = (server) => {
         }
     });
 
+    // Make io globally accessible for controllers
+    global.io = io;
+
     io.on('connection', (socket) => {
         logger.info(`New Client Connected: ${socket.id}`);
 
-        // Join personal room based on userId (sent via handshake or auth token)
-        socket.on('join', (userId) => {
-            if (userId) {
-                socket.join(userId);
-                logger.info(`Socket ${socket.id} joined room: ${userId}`);
+        // Automated room joining protocol
+        socket.on('join', (data) => {
+            if (data?.userId) {
+                socket.join(data.userId);
+                logger.info(`Socket ${socket.id} joined personal room: ${data.userId}`);
+            }
+            if (data?.role === 'admin') {
+                socket.join('admin');
+                logger.info(`Socket ${socket.id} joined administrative room.`);
             }
         });
 

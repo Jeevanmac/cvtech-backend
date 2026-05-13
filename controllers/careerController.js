@@ -1,6 +1,7 @@
 const Application = require('../models/Application');
 const logger = require('../utils/logger');
 const { generateUploadUrl, generateDownloadUrl } = require('../utils/s3');
+const { createNotification } = require('./notificationController');
 
 /**
  * @desc    Submit a new career application
@@ -20,6 +21,15 @@ const applyForRole = async (req, res) => {
         });
 
         logger.info(`🚨 New Application Received: ${firstName} ${lastName} for role ${role}`);
+        
+        // Notify Admin Collective
+        await createNotification({
+            recipientRole: 'admin',
+            type: 'application',
+            title: '💼 New Job Application',
+            message: `${firstName} ${lastName} submitted an application for ${role}.`,
+            link: '/admin/careers'
+        });
 
         res.status(201).json({
             success: true,

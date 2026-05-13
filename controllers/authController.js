@@ -57,6 +57,15 @@ const signup = async (req, res) => {
             password: hashedPassword
         });
 
+        const { createNotification } = require('./notificationController');
+        await createNotification({
+            recipientRole: 'admin',
+            type: 'alert',
+            title: '👤 New User Registered',
+            message: `${firstName} ${lastName} has joined CV TECH.`,
+            link: '/admin/users'
+        });
+
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
 

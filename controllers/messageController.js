@@ -17,13 +17,29 @@ const sendMessage = async (req, res) => {
             text
         });
 
-        // Real-time Emission
+        // Real-time Emission & Persistent Notification
         const { notifyUser, notifyAdmins } = require('../socket/socketHandler');
+        const { createNotification } = require('./notificationController');
+
         if (receiverId) {
             notifyUser(receiverId, 'new_message', message);
+            await createNotification({
+                recipient: receiverId,
+                type: 'message',
+                title: '📩 New Secure Message',
+                message: `${req.user.name || 'A user'} sent you a message.`,
+                link: '/messages'
+            });
         } else {
             // If no receiver, it's for admins
             notifyAdmins('new_message', { ...message.toObject(), sender: req.user });
+            await createNotification({
+                recipientRole: 'admin',
+                type: 'message',
+                title: '📩 New User Query',
+                message: `${req.user.name || req.user.email} sent a message to the support stream.`,
+                link: '/admin/messages'
+            });
         }
 
         res.status(201).json({ success: true, message });

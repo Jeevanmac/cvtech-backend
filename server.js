@@ -17,6 +17,7 @@ const userProfileRoutes = require('./routes/userProfileRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const path = require('path');
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/profile', userProfileRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
