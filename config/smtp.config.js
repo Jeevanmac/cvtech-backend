@@ -1,12 +1,12 @@
 const nodemailer = require('nodemailer');
 
 /**
- * SMTP Configuration Utility
- * Centralized transporter instance for production-grade reliability on Render.
+ * SMTP Configuration Utility (Render Optimized)
+ * Using Port 2525 to bypass Render's outbound restrictions on 587/465.
  */
 const transporter = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
-    port: 587,
+    port: 2525, 
     secure: false, // STARTTLS
     auth: {
         user: process.env.SMTP_USER,
@@ -14,11 +14,11 @@ const transporter = nodemailer.createTransport({
     },
     tls: {
         rejectUnauthorized: false,
+        family: 4 // Force IPv4 to resolve Render network conflicts
     },
-    // Production stability settings
-    connectionTimeout: 10000, // 10s
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000, // 15s
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
 });
 
 module.exports = transporter;
