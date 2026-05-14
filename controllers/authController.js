@@ -4,6 +4,9 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken'); // Added for manual verification in refresh
 const logger = require('../utils/logger');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+const { sendWelcomeEmail, sendOtpEmail, sendPasswordChangedEmail } = require('../services/emailService');
+const { generateOTP, saveOTP, verifyOTP } = require('../services/otpService');
+const OTP = require('../models/OTP');
 
 /**
  * ReCAPTCHA Verification Engine Utility
@@ -74,6 +77,17 @@ const signup = async (req, res) => {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        // Background: Send welcome email and notification
+        sendWelcomeEmail(user.email, user.firstName).catch(err => logger.error(`Welcome email failure: ${err.message}`));
+        
+        await createNotification({
+            recipientId: user._id,
+            type: 'alert',
+            title: 'Welcome to CVTECH',
+            message: 'Identity registered successfully. Your personal workspace is ready.',
+            link: '/dashboard'
         });
 
         res.status(201).json({
@@ -196,9 +210,114 @@ const logout = (req, res) => {
     res.status(200).json({ success: true, message: 'Successfully logged out. Identity discarded.' });
 };
 
+/**
+ * @desc    Forgot Password - Send OTP
+ * @route   POST /api/auth/forgot-password
+ */
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Please provide registered email.' });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Security: Don't reveal if user exists, but here we need to know for OTP
+            // In a more secure way, we'd still say "If account exists, email sent"
+            // but for UX with OTP we'll check existence.
+            return res.status(404).json({ success: false, message: 'Identity mapping not found.' });
+        }
+
+        const otp = generateOTP();
+        await saveOTP(email, otp);
+        await sendOtpEmail(email, otp);
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Authorization code dispatched to your registered email.' 
+        });
+    } catch (error) {
+        logger.error(`Forgot password flow interrupted: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Recovery protocol failure.' });
+    }
+};
+
+/**
+ * @desc    Verify OTP
+ * @route   POST /api/auth/verify-otp
+ */
+const verifyOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) {
+            return res.status(400).json({ success: false, message: 'Email and code are required.' });
+        }
+
+        const isValid = await verifyOTP(email, otp);
+        if (!isValid) {
+            return res.status(400).json({ success: false, message: 'Incorrect or expired authorization code.' });
+        }
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Identity verified. You may now reset your access key.' 
+        });
+    } catch (error) {
+        logger.error(`OTP verification fault: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Verification engine failure.' });
+    }
+};
+
+/**
+ * @desc    Reset Password
+ * @route   POST /api/auth/reset-password
+ */
+const resetPassword = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: 'Email and new password are required.' });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Identity no longer exists.' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+        await user.save();
+
+        // Send confirmation email
+        sendPasswordChangedEmail(email).catch(err => logger.error(`Reset confirmation email failure: ${err.message}`));
+
+        // Trigger notification
+        const { createNotification } = require('./notificationController');
+        await createNotification({
+            recipientId: user._id,
+            type: 'alert',
+            title: 'Access Key Updated',
+            message: 'Your login credentials have been changed successfully.',
+            link: '/dashboard'
+        });
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Access key updated successfully. Login with your new credentials.' 
+        });
+    } catch (error) {
+        logger.error(`Reset password fault: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Protocol reset failure.' });
+    }
+};
+
 module.exports = {
     signup,
     login,
     refreshTokenHandler,
-    logout
+    logout,
+    forgotPassword,
+    verifyOtp,
+    resetPassword
 };

@@ -162,6 +162,37 @@ const verifyPayment = async (req, res) => {
         }
 
         logger.info(`Razorpay sequence successful map over Order ${order._id}`);
+
+        // Trigger Purchase Success Email & Notification
+        const Settings = require('../models/Settings');
+        const { sendPurchaseEmail } = require('../services/emailService');
+        
+        const adminSettings = await Settings.findOne() || { 
+            adminSupportEmail: process.env.CONTACT_RECEIVER_EMAIL, 
+            adminPhoneNumber: '+91 9876543210' 
+        };
+
+        for (let projInfo of order.projects) {
+            const project = await Project.findById(projInfo.projectId);
+            await sendPurchaseEmail(req.user.email, {
+                orderId: order.razorpayOrderId,
+                projectName: project.title
+            }, {
+                email: adminSettings.adminSupportEmail,
+                phone: adminSettings.adminPhoneNumber
+            }).catch(err => logger.error(`Purchase email failure: ${err.message}`));
+        }
+
+        // Add user notification for purchase
+        const { createNotification } = require('./notificationController');
+        await createNotification({
+            recipientId: req.user._id,
+            type: 'order',
+            title: 'Asset Deployment Completed',
+            message: `Purchase confirmed for ${order.projects.length} project(s). Your assets are ready for extraction.`,
+            link: '/dashboard/my-projects'
+        }).catch(err => logger.error(`Purchase notification failure: ${err.message}`));
+
         res.status(200).json({ success: true, message: 'Transaction Verified Securely. Monolith files accessible.', order });
 
     } catch (error) {
@@ -314,6 +345,36 @@ const webhookPayment = async (req, res) => {
                          type: 'order',
                          metadata: { orderId: orderToUpdate._id }
                      });
+                 }
+
+                 // Send Purchase Success Email to Customer
+                 const Settings = require('../models/Settings');
+                 const { sendPurchaseEmail } = require('../services/emailService');
+                 const adminSettings = await Settings.findOne() || { 
+                     adminSupportEmail: process.env.CONTACT_RECEIVER_EMAIL, 
+                     adminPhoneNumber: '+91 9876543210' 
+                 };
+
+                 if (customer) {
+                     for (let projInfo of orderToUpdate.projects) {
+                         const project = await Project.findById(projInfo.projectId);
+                         await sendPurchaseEmail(customer.email, {
+                             orderId: orderToUpdate.razorpayOrderId,
+                             projectName: project.title
+                         }, {
+                             email: adminSettings.adminSupportEmail,
+                             phone: adminSettings.adminPhoneNumber
+                         }).catch(err => logger.error(`Webhook purchase email failure: ${err.message}`));
+                     }
+
+                     // Notification for customer
+                     await Notification.create({
+                         userId: customer._id,
+                         title: 'Asset Deployment Completed',
+                         message: `Purchase confirmed via secure channel. Your assets are ready.`,
+                         type: 'order',
+                         metadata: { orderId: orderToUpdate._id }
+                     }).catch(err => logger.error(`Webhook purchase notification failure: ${err.message}`));
                  }
             }
         } else if (event === 'payment.failed') {
