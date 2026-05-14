@@ -7,35 +7,38 @@ const {
     purchaseTemplate 
 } = require('../utils/emailTemplates');
 
-// Force IPv4 for Gmail SMTP to resolve Render ENETUNREACH issues
+/**
+ * Branded SMTP Service Architecture (Brevo Compatible)
+ * Centralized email delivery pipeline using production-grade environment variables.
+ */
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  family: 4,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false, // true for 465, false for 587 (Brevo requirement)
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+    // Production timeouts to handle SMTP relay latency
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
 });
 
-// Verify SMTP connection on startup
-const verifySmtp = async () => {
-    try {
-        await transporter.verify();
-        logger.info('✅ SMTP READY');
-        console.log('✅ SMTP READY');
-    } catch (error) {
-        logger.error(`❌ SMTP FAILED: ${error.message}`);
-        console.error('❌ SMTP FAILED:', error.message);
-    }
+/**
+ * Verify SMTP Connection on Startup
+ * Logs the health status of the email architecture for auditability.
+ */
+const verifySmtp = () => {
+    transporter.verify((error, success) => {
+        if (error) {
+            logger.error(`❌ SMTP FAILED: ${error.message}`);
+            console.error('❌ SMTP FAILED:', error.message);
+        } else {
+            logger.info('✅ SMTP SERVER READY');
+            console.log('✅ SMTP SERVER READY');
+        }
+    });
 };
 
 exports.verifySmtp = verifySmtp;
