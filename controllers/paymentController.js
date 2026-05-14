@@ -174,13 +174,19 @@ const verifyPayment = async (req, res) => {
 
         for (let projInfo of order.projects) {
             const project = await Project.findById(projInfo.projectId);
-            await sendPurchaseEmail(req.user.email, {
+            sendPurchaseEmail(req.user.email, {
                 orderId: order.razorpayOrderId,
                 projectName: project.title
             }, {
                 email: adminSettings.adminSupportEmail,
                 phone: adminSettings.adminPhoneNumber
-            }).catch(err => logger.error(`Purchase email failure: ${err.message}`));
+            }).then(res => {
+                if (res.success) {
+                    console.log(`[PAYMENT] Purchase email delivered for Order: ${order._id}`);
+                } else {
+                    console.error(`[PAYMENT] Purchase email delivery failed for Order: ${order._id} | Error: ${res.error}`);
+                }
+            });
         }
 
         // Add user notification for purchase
@@ -356,16 +362,22 @@ const webhookPayment = async (req, res) => {
                  };
 
                  if (customer) {
-                     for (let projInfo of orderToUpdate.projects) {
-                         const project = await Project.findById(projInfo.projectId);
-                         await sendPurchaseEmail(customer.email, {
-                             orderId: orderToUpdate.razorpayOrderId,
-                             projectName: project.title
-                         }, {
-                             email: adminSettings.adminSupportEmail,
-                             phone: adminSettings.adminPhoneNumber
-                         }).catch(err => logger.error(`Webhook purchase email failure: ${err.message}`));
-                     }
+                      for (let projInfo of orderToUpdate.projects) {
+                          const project = await Project.findById(projInfo.projectId);
+                          sendPurchaseEmail(customer.email, {
+                              orderId: orderToUpdate.razorpayOrderId,
+                              projectName: project.title
+                          }, {
+                              email: adminSettings.adminSupportEmail,
+                              phone: adminSettings.adminPhoneNumber
+                          }).then(res => {
+                              if (res.success) {
+                                  console.log(`[WEBHOOK] Purchase email delivered for Order: ${orderToUpdate._id}`);
+                              } else {
+                                  console.error(`[WEBHOOK] Purchase email delivery failed for Order: ${orderToUpdate._id} | Error: ${res.error}`);
+                              }
+                          });
+                      }
 
                      // Notification for customer
                      await Notification.create({

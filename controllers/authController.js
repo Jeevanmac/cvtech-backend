@@ -80,8 +80,15 @@ const signup = async (req, res) => {
         });
 
         // Background: Send welcome email and notification
-        sendWelcomeEmail(user.email, user.firstName).catch(err => logger.error(`Welcome email failure: ${err.message}`));
+        sendWelcomeEmail(user.email, user.firstName).then(res => {
+            if (res.success) {
+                console.log(`[AUTH] Welcome email delivered to: ${user.email}`);
+            } else {
+                console.error(`[AUTH] Welcome email delivery failed for: ${user.email} | Error: ${res.error}`);
+            }
+        });
         
+        const { createNotification } = require('./notificationController');
         await createNotification({
             recipientId: user._id,
             type: 'alert',
@@ -211,47 +218,50 @@ const logout = (req, res) => {
 };
 
 /**
- * @desc    Forgot Password - Send OTP
+ * @desc    Forgot Password - Initiate Identity Recovery
  * @route   POST /api/auth/forgot-password
  */
 const forgotPassword = async (req, res) => {
-    try {
-        const { email } = req.body;
-        console.log(`[AUTH] ForgotPassword request received for: ${email}`);
+    const { email } = req.body;
+    console.log(`[AUTH-FLOW] Recovery request initiated for: ${email}`);
 
+    try {
         if (!email) {
-            return res.status(400).json({ success: false, message: 'Please provide registered email.' });
+            return res.status(400).json({ success: false, message: 'Identity missing. Please provide registered email.' });
         }
 
         const user = await User.findOne({ email });
         if (!user) {
-            console.warn(`[AUTH] ForgotPassword: User not found for email: ${email}`);
+            console.warn(`[AUTH-FLOW] Recovery blocked: Account mapping not found for ${email}`);
             return res.status(404).json({ success: false, message: 'Identity mapping not found.' });
         }
 
-        console.log(`[AUTH] User found: ${user.firstName}. Generating security code...`);
+        // Generate and persist authorization code
         const otp = generateOTP();
-        
-        console.log(`[AUTH] Saving OTP to secure storage...`);
         await saveOTP(email, otp);
-        
-        console.log(`[AUTH] Attempting to dispatch OTP email via SMTP...`);
-        const emailSent = await sendOtpEmail(email, otp);
+        console.log(`[AUTH-FLOW] Code persisted for: ${email}`);
 
-        if (!emailSent) {
-            console.error(`[AUTH] OTP dispatch failed for: ${email}`);
-            return res.status(500).json({ success: false, message: 'Failed to send OTP email. Recovery protocol halted.' });
+        // Dispatch email via SMTP
+        const result = await sendOtpEmail(email, otp);
+
+        if (!result.success) {
+            console.error(`[AUTH-FLOW] Dispatch failure: ${result.error}`);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Failed to deliver authorization code. Technical relay fault.' 
+            });
         }
 
-        console.log(`[AUTH] Recovery protocol successful. OTP dispatched to: ${email}`);
+        console.log(`[AUTH-FLOW] Recovery protocol successful for: ${email}`);
         res.status(200).json({ 
             success: true, 
-            message: 'Authorization code dispatched to your registered email.' 
+            message: 'Authorization code successfully dispatched to your inbox.' 
         });
+
     } catch (error) {
-        console.error(`[AUTH] CRITICAL FAULT in forgotPassword:`, error);
-        logger.error(`Forgot password flow interrupted: ${error.message}`);
-        res.status(500).json({ success: false, message: 'Recovery protocol failure.' });
+        console.error(`[AUTH-FLOW] Critical system fault:`, error.message);
+        logger.error(`Critical Recovery Fault: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Recovery protocol interruption.' });
     }
 };
 
