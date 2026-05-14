@@ -8,14 +8,31 @@ const {
 } = require('../utils/emailTemplates');
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: false, // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
+
+// Verify SMTP connection on startup
+const verifySmtp = async () => {
+    try {
+        await transporter.verify();
+        logger.info('✅ SMTP SERVER READY');
+        console.log('✅ SMTP SERVER READY');
+    } catch (error) {
+        logger.error(`❌ SMTP SERVER ERROR: ${error.message}`);
+        console.error('❌ SMTP SERVER ERROR:', error.message);
+    }
+};
+
+exports.verifySmtp = verifySmtp;
 
 exports.sendWelcomeEmail = async (email, name) => {
     try {
@@ -26,8 +43,10 @@ exports.sendWelcomeEmail = async (email, name) => {
             html: welcomeTemplate(name),
         });
         logger.info(`[EMAIL] Welcome email successfully dispatched to: ${email}`);
+        return true;
     } catch (error) {
         logger.error(`[EMAIL] Welcome email failure for ${email}: ${error.message}`);
+        return false;
     }
 };
 
@@ -40,8 +59,10 @@ exports.sendOtpEmail = async (email, otp) => {
             html: otpTemplate(otp),
         });
         logger.info(`[EMAIL] Security OTP successfully dispatched to: ${email}`);
+        return true;
     } catch (error) {
         logger.error(`[EMAIL] OTP delivery failure for ${email}: ${error.message}`);
+        return false;
     }
 };
 
@@ -54,8 +75,10 @@ exports.sendPasswordChangedEmail = async (email) => {
             html: passwordChangedTemplate(),
         });
         logger.info(`[EMAIL] Password reset confirmation dispatched to: ${email}`);
+        return true;
     } catch (error) {
         logger.error(`[EMAIL] Password change notification failure for ${email}: ${error.message}`);
+        return false;
     }
 };
 
@@ -68,7 +91,9 @@ exports.sendPurchaseEmail = async (email, orderData, adminContact) => {
             html: purchaseTemplate(orderData, adminContact),
         });
         logger.info(`[EMAIL] Purchase confirmation successfully dispatched to: ${email}`);
+        return true;
     } catch (error) {
         logger.error(`[EMAIL] Purchase email delivery failure for ${email}: ${error.message}`);
+        return false;
     }
 };

@@ -231,7 +231,11 @@ const forgotPassword = async (req, res) => {
 
         const otp = generateOTP();
         await saveOTP(email, otp);
-        await sendOtpEmail(email, otp);
+        const emailSent = await sendOtpEmail(email, otp);
+
+        if (!emailSent) {
+            return res.status(500).json({ success: false, message: 'Failed to send OTP email. Recovery protocol halted.' });
+        }
 
         res.status(200).json({ 
             success: true, 

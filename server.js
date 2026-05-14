@@ -104,6 +104,10 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         const server = http.createServer(app);
         initSocket(server);
         
+        // Initialize SMTP Verification
+        const { verifySmtp } = require('./services/emailService');
+        verifySmtp();
+        
         server.listen(PORT, () => {
             console.log(`🚀 CV TECH Monolith running on http://localhost:${PORT}`);
             logger.info(`CV TECH Monolith running on port ${PORT}`);
