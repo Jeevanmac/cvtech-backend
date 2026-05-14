@@ -8,76 +8,61 @@ const {
 } = require('../utils/emailTemplates');
 
 /**
- * Hardened SMTP Transporter Factory (Brevo Optimized)
+ * Standard SMTP Transporter Factory
+ * Reverting to Port 587 with explicit STARTTLS for maximum compatibility.
  */
 const createTransporter = () => {
     return nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-        port: Number(process.env.SMTP_PORT) || 587,
-        secure: false,
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false, // STARTTLS
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
         },
-        connectionTimeout: 45000,
-        greetingTimeout: 45000,
-        socketTimeout: 45000,
         tls: {
             rejectUnauthorized: false,
-            family: 4 
+            family: 4 // Force IPv4
         }
     });
 };
 
 const transporter = createTransporter();
 
-/**
- * Verified Sender Identity
- * Must match the verified sender in the Brevo dashboard to ensure delivery to Gmail.
- */
 const VERIFIED_SENDER = {
     name: "CV TECH",
     address: "gmac010102@gmail.com"
 };
 
 /**
- * Robust Email Dispatch with Aggressive Retry Logic
+ * Simple Email Dispatch with Detailed Error Propagation
  */
-const sendMailWithRetry = async (mailOptions, retryCount = 0) => {
+const sendMail = async (mailOptions) => {
     try {
-        console.log(`📨 [SMTP] Dispatching to: ${mailOptions.to} | Using Identity: ${mailOptions.from.address}`);
+        console.log(`📨 [SMTP] Attempting dispatch to: ${mailOptions.to}`);
         const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ [SMTP] EMAIL SENT! ID: ${info.messageId}`);
-        logger.info(`[SMTP] Dispatched: ${info.messageId} to ${mailOptions.to}`);
+        console.log(`✅ [SMTP] DISPATCH SUCCESS! ID: ${info.messageId}`);
         return info;
     } catch (error) {
-        const errorMessage = error.message || String(error);
-        if (retryCount === 0 && (errorMessage.includes('timeout') || error.code === 'ETIMEDOUT')) {
-            console.warn(`⚠️ [SMTP] Handshake stalled. Retrying in 8s...`);
-            await new Promise(resolve => setTimeout(resolve, 8000));
-            return await transporter.sendMail(mailOptions);
-        }
-        console.error(`❌ [SMTP] FATAL ERROR for ${mailOptions.to}:`, error);
+        console.error(`❌ [SMTP] DISPATCH FAULT:`, error.message);
+        console.error(`FULL ERROR CONTEXT:`, error);
         throw error;
     }
 };
 
-/**
- * Startup Health Check
- */
 exports.verifySmtp = () => {
     transporter.verify((error) => {
         if (error) {
-            console.error("❌ SMTP SERVER FAILED:", error.message);
+            console.error("❌ SMTP VERIFICATION FAILED:", error.message);
         } else {
-            console.log("✅ SMTP SERVER READY (2525/587)");
+            console.log("✅ SMTP SERVER READY (587)");
         }
     });
 };
 
 exports.sendWelcomeEmail = async (email, name) => {
     try {
-        const info = await sendMailWithRetry({
+        const info = await sendMail({
             from: VERIFIED_SENDER,
             to: email,
             subject: "Welcome to CVTECH — Identity Registered Successfully",
@@ -91,7 +76,7 @@ exports.sendWelcomeEmail = async (email, name) => {
 
 exports.sendOtpEmail = async (email, otp) => {
     try {
-        const info = await sendMailWithRetry({
+        const info = await sendMail({
             from: VERIFIED_SENDER,
             to: email,
             subject: "Access Recovery — Verification Code",
@@ -105,7 +90,7 @@ exports.sendOtpEmail = async (email, otp) => {
 
 exports.sendPasswordChangedEmail = async (email) => {
     try {
-        const info = await sendMailWithRetry({
+        const info = await sendMail({
             from: VERIFIED_SENDER,
             to: email,
             subject: "Your CVTECH Access Key Was Updated",
@@ -119,7 +104,7 @@ exports.sendPasswordChangedEmail = async (email) => {
 
 exports.sendPurchaseEmail = async (email, orderData, adminContact) => {
     try {
-        const info = await sendMailWithRetry({
+        const info = await sendMail({
             from: VERIFIED_SENDER,
             to: email,
             subject: "Your CVTECH Asset Deployment Is Complete",
