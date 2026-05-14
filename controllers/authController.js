@@ -1,13 +1,13 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
-const jwt = require('jsonwebtoken'); // Added for manual verification in refresh
+const jwt = require('jsonwebtoken'); 
 const logger = require('../utils/logger');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
-const { sendWelcomeMail, sendOTPMail } = require('../services/mail.service');
-const { generateOTP, hashOTP } = require('../utils/otp.util');
+const { sendWelcomeMail, sendOTPMail, sendPasswordChangedEmail } = require('../services/mail.service');
+const { generateOTP } = require('../utils/otp.util');
 const { saveOTP, verifyOTPStored } = require('../services/otpService');
-const OTP = require('../models/OTP');
+const { createNotification } = require('./notificationController');
 
 /**
  * ReCAPTCHA Verification Engine Utility
@@ -61,14 +61,14 @@ const signup = async (req, res) => {
             password: hashedPassword
         });
 
-        const { createNotification } = require('./notificationController');
+        // Admin Notification
         await createNotification({
             recipientRole: 'admin',
             type: 'alert',
             title: '👤 New User Registered',
             message: `${firstName} ${lastName} has joined CV TECH.`,
             link: '/admin/users'
-        });
+        }).catch(err => logger.error(`Admin notification failure: ${err.message}`));
 
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
@@ -80,7 +80,7 @@ const signup = async (req, res) => {
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
-        // Background: Send welcome email and notification
+        // Background: Send welcome email and user notification
         sendWelcomeMail(user.email, user.firstName).then(res => {
             if (res.success) {
                 console.log(`[AUTH] Welcome email delivered to: ${user.email}`);
@@ -89,14 +89,13 @@ const signup = async (req, res) => {
             }
         });
         
-        const { createNotification } = require('./notificationController');
         await createNotification({
             recipientId: user._id,
             type: 'alert',
             title: 'Welcome to CVTECH',
             message: 'Identity registered successfully. Your personal workspace is ready.',
             link: '/dashboard'
-        });
+        }).catch(err => logger.error(`User welcome notification failure: ${err.message}`));
 
         res.status(201).json({
             success: true,
@@ -239,7 +238,7 @@ const forgotPassword = async (req, res) => {
 
         // Generate and persist authorization code
         const otp = generateOTP();
-        await saveOTP(email, otp); // This should store hashed OTP internally
+        await saveOTP(email, otp); 
         console.log(`[AUTH-FLOW] Code persisted for: ${email}`);
 
         // Dispatch email via SMTP
@@ -277,7 +276,7 @@ const verifyOtp = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Email and code are required.' });
         }
 
-        const isValid = await verifyOTP(email, otp);
+        const isValid = await verifyOTPStored(email, otp);
         if (!isValid) {
             return res.status(400).json({ success: false, message: 'Incorrect or expired authorization code.' });
         }
@@ -316,14 +315,13 @@ const resetPassword = async (req, res) => {
         sendPasswordChangedEmail(email).catch(err => logger.error(`Reset confirmation email failure: ${err.message}`));
 
         // Trigger notification
-        const { createNotification } = require('./notificationController');
         await createNotification({
             recipientId: user._id,
             type: 'alert',
             title: 'Access Key Updated',
             message: 'Your login credentials have been changed successfully.',
             link: '/dashboard'
-        });
+        }).catch(err => logger.error(`Password change notification failure: ${err.message}`));
 
         res.status(200).json({ 
             success: true, 
