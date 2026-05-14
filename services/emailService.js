@@ -8,44 +8,66 @@ const {
 } = require('../utils/emailTemplates');
 
 /**
- * Branded SMTP Service Architecture (Brevo Compatible)
- * Centralized email delivery pipeline using production-grade environment variables.
+ * Optimized SMTP Transporter Factory
+ * Forces IPv4 and includes extended timeouts for production stability on Render.
  */
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // true for 465, false for 587 (Brevo requirement)
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-    // Production timeouts to handle SMTP relay latency
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-});
-
-/**
- * Verify SMTP Connection on Startup
- * Logs the health status of the email architecture for auditability.
- */
-const verifySmtp = () => {
-    transporter.verify((error, success) => {
-        if (error) {
-            logger.error(`❌ SMTP FAILED: ${error.message}`);
-            console.error('❌ SMTP FAILED:', error.message);
-        } else {
-            logger.info('✅ SMTP SERVER READY');
-            console.log('✅ SMTP SERVER READY');
+const createTransporter = () => {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
+        tls: {
+            rejectUnauthorized: false,
+            family: 4 // Force IPv4
         }
     });
 };
 
-exports.verifySmtp = verifySmtp;
+const transporter = createTransporter();
+
+/**
+ * Retry Logic for SMTP Dispatch
+ * Attempts a single retry after a 3-second delay if a timeout occurs.
+ */
+const sendMailWithRetry = async (mailOptions, retryCount = 0) => {
+    try {
+        return await transporter.sendMail(mailOptions);
+    } catch (error) {
+        if (retryCount === 0 && (error.code === 'ETIMEDOUT' || error.command === 'CONN')) {
+            logger.warn(`[SMTP] Timeout detected. Retrying in 3s...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            return await transporter.sendMail(mailOptions);
+        }
+        logger.error("SMTP FULL ERROR:", error);
+        throw error;
+    }
+};
+
+// Removed transporter.verify() from startup to prevent deployment blocking.
+
+exports.verifySmtp = () => {
+    // Legacy export maintained to avoid breaking server.js imports, 
+    // but now performing a non-blocking check if called.
+    transporter.verify((error) => {
+        if (error) {
+            logger.error("✅ SMTP CHECK FAILED:", error.message);
+        } else {
+            logger.info("✅ SMTP SERVER READY");
+        }
+    });
+};
 
 exports.sendWelcomeEmail = async (email, name) => {
     try {
-        await transporter.sendMail({
+        await sendMailWithRetry({
             from: `"CVTECH Ecosystem" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Welcome to CVTECH — Identity Registered Successfully",
@@ -61,7 +83,7 @@ exports.sendWelcomeEmail = async (email, name) => {
 
 exports.sendOtpEmail = async (email, otp) => {
     try {
-        await transporter.sendMail({
+        await sendMailWithRetry({
             from: `"CVTECH Security" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Access Recovery — Verification Code",
@@ -77,7 +99,7 @@ exports.sendOtpEmail = async (email, otp) => {
 
 exports.sendPasswordChangedEmail = async (email) => {
     try {
-        await transporter.sendMail({
+        await sendMailWithRetry({
             from: `"CVTECH Security" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Your CVTECH Access Key Was Updated",
@@ -93,7 +115,7 @@ exports.sendPasswordChangedEmail = async (email) => {
 
 exports.sendPurchaseEmail = async (email, orderData, adminContact) => {
     try {
-        await transporter.sendMail({
+        await sendMailWithRetry({
             from: `"CVTECH Assets" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Your CVTECH Asset Deployment Is Complete",
