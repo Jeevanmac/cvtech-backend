@@ -7,13 +7,17 @@ const {
     purchaseTemplate 
 } = require('../utils/emailTemplates');
 
+// Log SMTP Configuration for Identity Verification
+console.log("🔍 [SMTP CONFIG] USER IDENTITY:", process.env.SMTP_USER);
+console.log("🔍 [SMTP CONFIG] HOST IDENTITY:", process.env.SMTP_HOST || 'smtp-relay.brevo.com');
+
 /**
  * Hardened SMTP Transporter Factory (Brevo Optimized)
  */
 const createTransporter = () => {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-        port: 2525, 
+        port: Number(process.env.SMTP_PORT) || 2525, 
         secure: false, 
         auth: {
             user: process.env.SMTP_USER,
@@ -36,23 +40,30 @@ const transporter = createTransporter();
  */
 const sendMailWithRetry = async (mailOptions, retryCount = 0) => {
     try {
-        console.log(`📨 [SMTP] Dispatching email to: ${mailOptions.to} | Subject: ${mailOptions.subject}`);
-        const info = await transporter.sendMail(mailOptions);
+        // Enforce verified sender identity
+        const finalOptions = {
+            ...mailOptions,
+            from: {
+                name: "CV TECH",
+                address: process.env.SMTP_USER
+            }
+        };
+
+        console.log(`📨 [SMTP] Dispatching via: ${finalOptions.from.address} to: ${finalOptions.to}`);
+        const info = await transporter.sendMail(finalOptions);
         console.log(`✅ [SMTP] EMAIL SENT SUCCESSFULLY! ID: ${info.messageId}`);
-        logger.info(`[SMTP] Dispatched: ${info.messageId} to ${mailOptions.to}`);
+        logger.info(`[SMTP] Dispatched: ${info.messageId} to ${finalOptions.to}`);
         return info;
     } catch (error) {
         const errorMessage = error.message || String(error);
         
         if (retryCount === 0 && (errorMessage.includes('timeout') || error.code === 'ETIMEDOUT' || error.command === 'CONN')) {
-            console.warn(`⚠️ [SMTP] Timeout/Connection failure. Retrying in 8s...`);
-            logger.warn(`[SMTP] Attempting recovery from: ${errorMessage}. Retrying in 8s...`);
+            console.warn(`⚠️ [SMTP] Timeout failure. Retrying in 8s...`);
             await new Promise(resolve => setTimeout(resolve, 8000));
             return await sendMailWithRetry(mailOptions, 1);
         }
         
-        console.error(`❌ [SMTP] CRITICAL DISPATCH FAILURE for ${mailOptions.to}:`, error);
-        logger.error(`[SMTP] CRITICAL DISPATCH FAILURE for ${mailOptions.to}: ${errorMessage}`, { code: error.code, command: error.command });
+        console.error(`❌ [SMTP] DISPATCH FAILURE:`, error);
         throw error;
     }
 };
@@ -76,7 +87,6 @@ exports.verifySmtp = () => {
 exports.sendWelcomeEmail = async (email, name) => {
     try {
         const info = await sendMailWithRetry({
-            from: `"CVTECH Ecosystem" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Welcome to CVTECH — Identity Registered Successfully",
             html: welcomeTemplate(name),
@@ -89,9 +99,7 @@ exports.sendWelcomeEmail = async (email, name) => {
 
 exports.sendOtpEmail = async (email, otp) => {
     try {
-        console.log(`[DEBUG] Preparing OTP Email dispatch. Target: ${email}, Code: ${otp}`);
         const info = await sendMailWithRetry({
-            from: `"CVTECH Security" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Access Recovery — Verification Code",
             html: otpTemplate(otp),
@@ -105,7 +113,6 @@ exports.sendOtpEmail = async (email, otp) => {
 exports.sendPasswordChangedEmail = async (email) => {
     try {
         const info = await sendMailWithRetry({
-            from: `"CVTECH Security" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Your CVTECH Access Key Was Updated",
             html: passwordChangedTemplate(),
@@ -119,7 +126,6 @@ exports.sendPasswordChangedEmail = async (email) => {
 exports.sendPurchaseEmail = async (email, orderData, adminContact) => {
     try {
         const info = await sendMailWithRetry({
-            from: `"CVTECH Assets" <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Your CVTECH Asset Deployment Is Complete",
             html: purchaseTemplate(orderData, adminContact),
