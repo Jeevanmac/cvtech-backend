@@ -7,10 +7,13 @@ const {
     purchaseTemplate 
 } = require('../utils/emailTemplates');
 
+// Force IPv4 for Gmail SMTP to resolve Render ENETUNREACH issues
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
+  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
   secure: false,
+  family: 4,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -18,17 +21,20 @@ const transporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
 // Verify SMTP connection on startup
 const verifySmtp = async () => {
     try {
         await transporter.verify();
-        logger.info('✅ SMTP SERVER READY');
-        console.log('✅ SMTP SERVER READY');
+        logger.info('✅ SMTP READY');
+        console.log('✅ SMTP READY');
     } catch (error) {
-        logger.error(`❌ SMTP SERVER ERROR: ${error.message}`);
-        console.error('❌ SMTP SERVER ERROR:', error.message);
+        logger.error(`❌ SMTP FAILED: ${error.message}`);
+        console.error('❌ SMTP FAILED:', error.message);
     }
 };
 
