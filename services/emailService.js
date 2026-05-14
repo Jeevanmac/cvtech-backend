@@ -8,15 +8,15 @@ const {
 } = require('../utils/emailTemplates');
 
 /**
- * Optimized SMTP Transporter Factory
- * Forces IPv4 and includes extended timeouts for production stability on Render.
+ * Hardened SMTP Transporter Factory (Brevo Optimized)
+ * Switching to Port 465 with SSL for maximum stability on Render environments.
+ * Forces IPv4 to resolve ENETUNREACH issues.
  */
 const createTransporter = () => {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-        port: 587,
-        secure: false,
-        requireTLS: true,
+        port: 465, // Using SSL port for better bypass of potential firewalls
+        secure: true, // Required for port 465
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
@@ -34,33 +34,38 @@ const createTransporter = () => {
 const transporter = createTransporter();
 
 /**
- * Retry Logic for SMTP Dispatch
- * Attempts a single retry after a 3-second delay if a timeout occurs.
+ * Robust Email Dispatch with Retry Logic
  */
 const sendMailWithRetry = async (mailOptions, retryCount = 0) => {
     try {
         return await transporter.sendMail(mailOptions);
     } catch (error) {
-        if (retryCount === 0 && (error.code === 'ETIMEDOUT' || error.command === 'CONN')) {
-            logger.warn(`[SMTP] Timeout detected. Retrying in 3s...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
+        // Detailed error logging to prevent character-splitting objects in logs
+        const errorMessage = error.message || String(error);
+        
+        if (retryCount === 0 && (errorMessage.includes('timeout') || error.code === 'ETIMEDOUT' || error.command === 'CONN')) {
+            logger.warn(`[SMTP] Transient failure: ${errorMessage}. Retrying in 5s...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
             return await transporter.sendMail(mailOptions);
         }
-        logger.error("SMTP FULL ERROR:", error);
+        
+        logger.error(`[SMTP] FATAL ERROR: ${errorMessage}`, { code: error.code, command: error.command });
         throw error;
     }
 };
 
-// Removed transporter.verify() from startup to prevent deployment blocking.
-
+/**
+ * Non-blocking Health Check
+ */
 exports.verifySmtp = () => {
-    // Legacy export maintained to avoid breaking server.js imports, 
-    // but now performing a non-blocking check if called.
     transporter.verify((error) => {
         if (error) {
-            logger.error("✅ SMTP CHECK FAILED:", error.message);
+            const msg = error.message || String(error);
+            logger.error(`❌ SMTP SYSTEM FAULT: ${msg}`);
+            console.error('❌ SMTP SYSTEM FAULT:', msg);
         } else {
-            logger.info("✅ SMTP SERVER READY");
+            logger.info("✅ SMTP SERVER READY (SSL/465)");
+            console.log("✅ SMTP SERVER READY (SSL/465)");
         }
     });
 };
