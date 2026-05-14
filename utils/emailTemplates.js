@@ -116,10 +116,10 @@ exports.welcomeTemplate = (name) => getBaseTemplate(`
         </ul>
     </div>
 
-    <a href="\${process.env.FRONTEND_URL}/dashboard" class="button">ENTER DASHBOARD</a>
+    <a href="${process.env.FRONTEND_URL}/dashboard" class="button">ENTER DASHBOARD</a>
     
     <p style="margin-top: 32px; font-size: 14px;" class="text-muted">
-        Need assistance? Our support architecture is ready at \${process.env.CONTACT_RECEIVER_EMAIL}
+        Need assistance? Our support architecture is ready at ${process.env.CONTACT_RECEIVER_EMAIL}
     </p>
 `);
 
@@ -141,7 +141,7 @@ exports.passwordChangedTemplate = () => getBaseTemplate(`
         <p style="margin: 0; font-weight: bold;">Security Status: Verified</p>
     </div>
 
-    <a href="\${process.env.FRONTEND_URL}/login" class="button">LOGIN TO ACCOUNT</a>
+    <a href="${process.env.FRONTEND_URL}/login" class="button">LOGIN TO ACCOUNT</a>
 `);
 
 exports.purchaseTemplate = (orderData, adminContact) => getBaseTemplate(`
@@ -161,7 +161,7 @@ exports.purchaseTemplate = (orderData, adminContact) => getBaseTemplate(`
         <li>Select the asset and trigger the secure download</li>
     </ol>
 
-    <a href="\${process.env.FRONTEND_URL}/dashboard/my-projects" class="button">ACCESS ASSETS</a>
+    <a href="${process.env.FRONTEND_URL}/dashboard/my-projects" class="button">ACCESS ASSETS</a>
 
     <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #1e293b;">
         <h3 style="font-size: 12px; margin-top: 0;">TECHNICAL SUPPORT:</h3>

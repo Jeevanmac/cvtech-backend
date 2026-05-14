@@ -217,31 +217,39 @@ const logout = (req, res) => {
 const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
+        console.log(`[AUTH] ForgotPassword request received for: ${email}`);
+
         if (!email) {
             return res.status(400).json({ success: false, message: 'Please provide registered email.' });
         }
 
         const user = await User.findOne({ email });
         if (!user) {
-            // Security: Don't reveal if user exists, but here we need to know for OTP
-            // In a more secure way, we'd still say "If account exists, email sent"
-            // but for UX with OTP we'll check existence.
+            console.warn(`[AUTH] ForgotPassword: User not found for email: ${email}`);
             return res.status(404).json({ success: false, message: 'Identity mapping not found.' });
         }
 
+        console.log(`[AUTH] User found: ${user.firstName}. Generating security code...`);
         const otp = generateOTP();
+        
+        console.log(`[AUTH] Saving OTP to secure storage...`);
         await saveOTP(email, otp);
+        
+        console.log(`[AUTH] Attempting to dispatch OTP email via SMTP...`);
         const emailSent = await sendOtpEmail(email, otp);
 
         if (!emailSent) {
+            console.error(`[AUTH] OTP dispatch failed for: ${email}`);
             return res.status(500).json({ success: false, message: 'Failed to send OTP email. Recovery protocol halted.' });
         }
 
+        console.log(`[AUTH] Recovery protocol successful. OTP dispatched to: ${email}`);
         res.status(200).json({ 
             success: true, 
             message: 'Authorization code dispatched to your registered email.' 
         });
     } catch (error) {
+        console.error(`[AUTH] CRITICAL FAULT in forgotPassword:`, error);
         logger.error(`Forgot password flow interrupted: ${error.message}`);
         res.status(500).json({ success: false, message: 'Recovery protocol failure.' });
     }
