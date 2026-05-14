@@ -8,67 +8,69 @@ const {
 } = require('../utils/emailTemplates');
 
 /**
- * Hardened SMTP Transporter Factory (Brevo Optimized)
+ * PRODUCTION SMTP CONFIGURATION AUDIT
+ * Debugging potential environment variable mapping issues on Render.
  */
-const createTransporter = () => {
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-        port: 2525, 
-        secure: false, 
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-        connectionTimeout: 45000, 
-        greetingTimeout: 45000,
-        socketTimeout: 45000,
-        tls: {
-            rejectUnauthorized: false,
-            family: 4 
-        }
-    });
-};
+console.log("-----------------------------------------");
+console.log("SMTP_HOST:", process.env.SMTP_HOST);
+console.log("SMTP_USER:", process.env.SMTP_USER);
+console.log("SMTP_PORT:", process.env.SMTP_PORT);
+console.log("-----------------------------------------");
 
-const transporter = createTransporter();
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+    // Production stability settings
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+    tls: {
+        rejectUnauthorized: false,
+        family: 4 // Force IPv4 to resolve Render network conflicts
+    }
+});
 
 /**
- * Robust Email Dispatch with Aggressive Retry Logic and Detailed Logging
+ * Robust Email Dispatch with Retry Logic and ID Tracking
  */
 const sendMailWithRetry = async (mailOptions, retryCount = 0) => {
     try {
         console.log(`📨 [SMTP] Dispatching email to: ${mailOptions.to} | Subject: ${mailOptions.subject}`);
         const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ [SMTP] EMAIL SENT SUCCESSFULLY! ID: ${info.messageId}`);
+        console.log(`✅ [SMTP] EMAIL SENT! ID: ${info.messageId}`);
         logger.info(`[SMTP] Dispatched: ${info.messageId} to ${mailOptions.to}`);
         return info;
     } catch (error) {
         const errorMessage = error.message || String(error);
         
-        if (retryCount === 0 && (errorMessage.includes('timeout') || error.code === 'ETIMEDOUT' || error.command === 'CONN')) {
-            console.warn(`⚠️ [SMTP] Timeout/Connection failure. Retrying in 8s...`);
-            logger.warn(`[SMTP] Attempting recovery from: ${errorMessage}. Retrying in 8s...`);
-            await new Promise(resolve => setTimeout(resolve, 8000));
-            return await sendMailWithRetry(mailOptions, 1);
+        if (retryCount === 0 && (errorMessage.includes('timeout') || error.code === 'ETIMEDOUT')) {
+            console.warn(`⚠️ [SMTP] Connection timeout. Retrying in 5s...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            return await transporter.sendMail(mailOptions);
         }
         
-        console.error(`❌ [SMTP] CRITICAL DISPATCH FAILURE for ${mailOptions.to}:`, error);
-        logger.error(`[SMTP] CRITICAL DISPATCH FAILURE for ${mailOptions.to}: ${errorMessage}`, { code: error.code, command: error.command });
+        console.error(`❌ [SMTP] FATAL DISPATCH ERROR for ${mailOptions.to}:`, error);
+        logger.error(`[SMTP] FATAL DISPATCH ERROR: ${errorMessage}`);
         throw error;
     }
 };
 
 /**
- * Health Check
+ * Startup Health Check
  */
 exports.verifySmtp = () => {
-    transporter.verify((error) => {
+    transporter.verify((error, success) => {
         if (error) {
-            const msg = error.message || String(error);
-            logger.error(`❌ SMTP SYSTEM FAULT: ${msg}`);
-            console.error('❌ SMTP SYSTEM FAULT:', msg);
+            console.error("❌ SMTP SERVER FAILED:", error.message);
+            logger.error(`❌ SMTP SERVER FAILED: ${error.message}`);
         } else {
-            logger.info("✅ SMTP SERVER READY (PORT 2525)");
-            console.log("✅ SMTP SERVER READY (PORT 2525)");
+            console.log("✅ SMTP SERVER READY");
+            logger.info("✅ SMTP SERVER READY");
         }
     });
 };
@@ -89,7 +91,7 @@ exports.sendWelcomeEmail = async (email, name) => {
 
 exports.sendOtpEmail = async (email, otp) => {
     try {
-        console.log(`[DEBUG] Preparing OTP Email dispatch. Target: ${email}, Code: ${otp}`);
+        console.log(`[DEBUG] Preparing OTP dispatch. Target: ${email}, Code: ${otp}`);
         const info = await sendMailWithRetry({
             from: `"CVTECH Security" <${process.env.SMTP_USER}>`,
             to: email,
