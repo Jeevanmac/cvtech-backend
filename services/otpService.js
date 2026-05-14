@@ -1,18 +1,21 @@
-const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 const OTP = require('../models/OTP');
+const { hashOTP, verifyOTP } = require('../utils/otp.util');
 
-exports.generateOTP = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-};
+/**
+ * OTP Service
+ * Business logic for persisting and validating security codes.
+ */
 
+/**
+ * Persist a new OTP for an identity
+ * Invalidate existing codes to prevent replay attacks.
+ */
 exports.saveOTP = async (email, otp) => {
-    // Hash the OTP before saving as per security requirements
-    const salt = await bcrypt.genSalt(10);
-    const hashedOtp = await bcrypt.hash(otp, salt);
-
-    // Remove any existing OTPs for this email to prevent spam/confusion
+    // Standard Security: Invalidate any previous authorization attempts
     await OTP.deleteMany({ email });
+
+    // Store the cryptographic hash of the code
+    const hashedOtp = hashOTP(otp);
 
     await OTP.create({
         email,
@@ -20,15 +23,22 @@ exports.saveOTP = async (email, otp) => {
     });
 };
 
-exports.verifyOTP = async (email, otp) => {
+/**
+ * Validate an authorization attempt
+ * Checks against the persisted hash and consumes the code if valid.
+ */
+exports.verifyOTPStored = async (email, plainOtp) => {
     const otpRecord = await OTP.findOne({ email });
     if (!otpRecord) return false;
 
-    const isValid = await bcrypt.compare(otp, otpRecord.otp);
+    // Direct Hash Comparison
+    const isValid = verifyOTP(plainOtp, otpRecord.otp);
+    
     if (isValid) {
-        // Delete the OTP once it's used
+        // Single-Use Enforcement: Delete the record upon successful verification
         await OTP.deleteMany({ email });
         return true;
     }
+    
     return false;
 };

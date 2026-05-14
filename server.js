@@ -20,10 +20,11 @@ const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const path = require('path');
+const { verifyTransporter } = require('./services/mail.service');
 
 const app = express();
 
-// Set trust proxy for Render environment
+// Trust proxy for Render/Cloud Load Balancers (Set BEFORE rate-limiters)
 app.set('trust proxy', 1);
 
 // Middleware
@@ -108,8 +109,8 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         initSocket(server);
         
         // Initialize SMTP Verification
-        const { verifySmtp } = require('./services/emailService');
-        verifySmtp();
+        const { verifyTransporter } = require('./services/mail.service');
+        verifyTransporter();
         
         server.listen(PORT, () => {
             console.log(`🚀 CV TECH Monolith running on http://localhost:${PORT}`);

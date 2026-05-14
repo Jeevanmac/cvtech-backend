@@ -4,8 +4,9 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken'); // Added for manual verification in refresh
 const logger = require('../utils/logger');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
-const { sendWelcomeEmail, sendOtpEmail, sendPasswordChangedEmail } = require('../services/emailService');
-const { generateOTP, saveOTP, verifyOTP } = require('../services/otpService');
+const { sendWelcomeMail, sendOTPMail } = require('../services/mail.service');
+const { generateOTP, hashOTP } = require('../utils/otp.util');
+const { saveOTP, verifyOTPStored } = require('../services/otpService');
 const OTP = require('../models/OTP');
 
 /**
@@ -80,7 +81,7 @@ const signup = async (req, res) => {
         });
 
         // Background: Send welcome email and notification
-        sendWelcomeEmail(user.email, user.firstName).then(res => {
+        sendWelcomeMail(user.email, user.firstName).then(res => {
             if (res.success) {
                 console.log(`[AUTH] Welcome email delivered to: ${user.email}`);
             } else {
@@ -238,11 +239,11 @@ const forgotPassword = async (req, res) => {
 
         // Generate and persist authorization code
         const otp = generateOTP();
-        await saveOTP(email, otp);
+        await saveOTP(email, otp); // This should store hashed OTP internally
         console.log(`[AUTH-FLOW] Code persisted for: ${email}`);
 
         // Dispatch email via SMTP
-        const result = await sendOtpEmail(email, otp);
+        const result = await sendOTPMail(email, otp);
 
         if (!result.success) {
             console.error(`[AUTH-FLOW] Dispatch failure: ${result.error}`);

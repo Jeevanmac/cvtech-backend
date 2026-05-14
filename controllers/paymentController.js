@@ -165,7 +165,7 @@ const verifyPayment = async (req, res) => {
 
         // Trigger Purchase Success Email & Notification
         const Settings = require('../models/Settings');
-        const { sendPurchaseEmail } = require('../services/emailService');
+        const { sendPurchaseMail } = require('../services/mail.service');
         
         const adminSettings = await Settings.findOne() || { 
             adminSupportEmail: process.env.CONTACT_RECEIVER_EMAIL, 
@@ -174,13 +174,7 @@ const verifyPayment = async (req, res) => {
 
         for (let projInfo of order.projects) {
             const project = await Project.findById(projInfo.projectId);
-            sendPurchaseEmail(req.user.email, {
-                orderId: order.razorpayOrderId,
-                projectName: project.title
-            }, {
-                email: adminSettings.adminSupportEmail,
-                phone: adminSettings.adminPhoneNumber
-            }).then(res => {
+            sendPurchaseMail(req.user.email, project.title, order.razorpayOrderId).then(res => {
                 if (res.success) {
                     console.log(`[PAYMENT] Purchase email delivered for Order: ${order._id}`);
                 } else {
@@ -355,7 +349,7 @@ const webhookPayment = async (req, res) => {
 
                  // Send Purchase Success Email to Customer
                  const Settings = require('../models/Settings');
-                 const { sendPurchaseEmail } = require('../services/emailService');
+                 const { sendPurchaseMail } = require('../services/mail.service');
                  const adminSettings = await Settings.findOne() || { 
                      adminSupportEmail: process.env.CONTACT_RECEIVER_EMAIL, 
                      adminPhoneNumber: '+91 9876543210' 
@@ -364,13 +358,7 @@ const webhookPayment = async (req, res) => {
                  if (customer) {
                       for (let projInfo of orderToUpdate.projects) {
                           const project = await Project.findById(projInfo.projectId);
-                          sendPurchaseEmail(customer.email, {
-                              orderId: orderToUpdate.razorpayOrderId,
-                              projectName: project.title
-                          }, {
-                              email: adminSettings.adminSupportEmail,
-                              phone: adminSettings.adminPhoneNumber
-                          }).then(res => {
+                          sendPurchaseMail(customer.email, project.title, orderToUpdate.razorpayOrderId).then(res => {
                               if (res.success) {
                                   console.log(`[WEBHOOK] Purchase email delivered for Order: ${orderToUpdate._id}`);
                               } else {
