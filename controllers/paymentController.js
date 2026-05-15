@@ -155,7 +155,7 @@ const verifyPayment = async (req, res) => {
             await Notification.create({
                 recipient: admin._id,
                 recipientRole: 'admin',
-                title: 'New Revenue Generated',
+                title: 'New Project Sale',
                 message: `${req.user.firstName} purchased ${order.projects.length} project(s) for ₹${order.totalAmount}`,
                 type: 'order',
                 metadata: { orderId: order._id }
@@ -188,8 +188,8 @@ const verifyPayment = async (req, res) => {
         await createNotification({
             recipient: req.user._id,
             type: 'order',
-            title: 'Asset Deployment Completed',
-            message: `Purchase confirmed for ${order.projects.length} project(s). Your assets are ready for extraction.`,
+            title: 'Purchase Successful',
+            message: `Your purchase for ${order.projects.length} project(s) is confirmed. You can now download your projects.`,
             link: '/dashboard/my-projects'
         }).catch(err => logger.error(`Purchase notification failure: ${err.message}`));
 
@@ -341,8 +341,8 @@ const webhookPayment = async (req, res) => {
                      await Notification.create({
                          recipient: admin._id,
                          recipientRole: 'admin',
-                         title: 'S2S Revenue Capture',
-                         message: `${customer?.firstName || 'User'} purchased ${orderToUpdate.projects.length} project(s) via Webhook`,
+                         title: 'New Webhook Sale',
+                         message: `${customer?.firstName || 'User'} purchased ${orderToUpdate.projects.length} project(s)`,
                          type: 'order',
                          metadata: { orderId: orderToUpdate._id }
                      }).catch(err => logger.error(`Webhook admin notification failure: ${err.message}`));
@@ -371,8 +371,8 @@ const webhookPayment = async (req, res) => {
                      // Notification for customer
                      await Notification.create({
                          recipient: customer._id,
-                         title: 'Asset Deployment Completed',
-                         message: `Purchase confirmed via secure channel. Your assets are ready.`,
+                         title: 'Purchase Successful',
+                         message: `Your purchase is confirmed. Your projects are ready for download in your dashboard.`,
                          type: 'order',
                          metadata: { orderId: orderToUpdate._id }
                      }).catch(err => logger.error(`Webhook purchase notification failure: ${err.message}`));
