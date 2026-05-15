@@ -149,7 +149,7 @@ const getAdminMessages = async (req, res) => {
                 { receiverId: null },
                 { senderId: req.user._id } // Or any admin really, but for now simple structure
             ]
-        }).populate('senderId', 'name email role').populate('receiverId', 'name email role').sort({ createdAt: -1 });
+        }).populate('senderId', 'firstName lastName email role').populate('receiverId', 'firstName lastName email role').sort({ createdAt: -1 });
 
         // Group messages by user
         const threads = {};
