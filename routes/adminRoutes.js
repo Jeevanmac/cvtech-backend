@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { grantAccess, revokeAccess, resetDownloadCount, getAnalytics, getSystemLogs, updateUserRole, getAllUsers, createAdmin, promoteUser, demoteAdmin, getAdminMessages, getOrders } = require('../controllers/adminController');
+const { grantAccess, revokeAccess, resetDownloadCount, getAnalytics, getSystemLogs, updateUserRole, getAllUsers, createAdmin, promoteUser, demoteAdmin, getAdminMessages, getOrders, deleteUser, toggleSuspendUser } = require('../controllers/adminController');
 const { protect, isAdmin, isSuperuser, isSuperAdmin } = require('../middleware/auth');
 
 router.use(protect, isAdmin);
@@ -13,6 +13,8 @@ router.get('/messages', getAdminMessages);
 router.get('/logs', getSystemLogs);
 router.get('/users', getAllUsers);
 router.get('/orders', getOrders);
+router.delete('/users/:id', deleteUser);
+router.patch('/users/:id/suspend', toggleSuspendUser);
 
 // SuperUser Exclusive Commands
 router.put('/users/:id/role', isSuperuser, updateUserRole);

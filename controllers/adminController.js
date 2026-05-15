@@ -345,5 +345,73 @@ module.exports = {
     promoteUser,
     demoteAdmin,
     getAdminMessages,
-    getOrders
+    getOrders,
+    deleteUser,
+    toggleSuspendUser
 };
+
+/**
+ * @desc    Permanently erase a user identity and all associated data
+ * @route   DELETE /api/admin/users/:id
+ * @access  Private/Admin
+ */
+async function deleteUser(req, res) {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ success: false, message: 'Identity not found.' });
+
+        // Safety check: Cannot delete superuser or self
+        if (user.role === 'superuser' || user.role === 'superadmin') {
+            return res.status(403).json({ success: false, message: 'Root identities are immutable.' });
+        }
+        if (user._id.toString() === req.user._id.toString()) {
+            return res.status(400).json({ success: false, message: 'Self-termination not allowed via this interface.' });
+        }
+
+        await User.findByIdAndDelete(req.params.id);
+        
+        logger.info(`[ADMIN] ${req.user.email} permanently deleted user ${user.email}`);
+        
+        res.status(200).json({ success: true, message: 'User permanently deleted' });
+    } catch (err) {
+        logger.error(`User deletion failure: ${err.message}`);
+        res.status(500).json({ success: false, message: 'Identity erasure fault.' });
+    }
+}
+
+/**
+ * @desc    Toggle suspension status for a user
+ * @route   PATCH /api/admin/users/:id/suspend
+ * @access  Private/Admin
+ */
+async function toggleSuspendUser(req, res) {
+    try {
+        const { reason } = req.body;
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ success: false, message: 'Identity not found.' });
+
+        if (user.role === 'superuser' || user.role === 'superadmin') {
+            return res.status(403).json({ success: false, message: 'Root identities cannot be suspended.' });
+        }
+
+        user.isSuspended = !user.isSuspended;
+        if (user.isSuspended) {
+            user.suspendedReason = reason || 'Administrative suspension';
+        } else {
+            user.suspendedReason = null;
+        }
+
+        await user.save();
+        
+        logger.info(`[ADMIN] ${req.user.email} ${user.isSuspended ? 'suspended' : 'reinstated'} user ${user.email}`);
+        
+        res.status(200).json({ 
+            success: true, 
+            message: `User ${user.isSuspended ? 'suspended' : 'reinstated'} successfully`,
+            isSuspended: user.isSuspended
+        });
+    } catch (err) {
+        logger.error(`Suspension toggle failure: ${err.message}`);
+        res.status(500).json({ success: false, message: 'Suspension state mapping fault.' });
+    }
+}

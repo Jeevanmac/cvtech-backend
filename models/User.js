@@ -55,7 +55,14 @@ const userSchema = new mongoose.Schema(
         wishlist: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Project'
-        }]
+        }],
+        isSuspended: {
+            type: Boolean,
+            default: false
+        },
+        suspendedReason: {
+            type: String
+        }
     },
     { timestamps: true }
 );
