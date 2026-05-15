@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { grantAccess, revokeAccess, resetDownloadCount, getAnalytics, getSystemLogs, updateUserRole, getAllUsers, createAdmin, promoteUser, demoteAdmin, getAdminMessages, getOrders, deleteUser, toggleSuspendUser } = require('../controllers/adminController');
+const { grantAccess, revokeAccess, resetDownloadCount, getAnalytics, getSystemLogs, updateUserRole, getAllUsers, createAdmin, promoteUser, demoteAdmin, getAdminMessages, getOrders, deleteOrder, clearAllOrders, deleteUser, toggleSuspendUser } = require('../controllers/adminController');
 const { protect, isAdmin, isSuperuser, isSuperAdmin } = require('../middleware/auth');
 
 router.use(protect, isAdmin);
