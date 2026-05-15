@@ -56,6 +56,19 @@ exports.otpTemplate = (otp) => getBaseTemplate(`
     <p style="font-size: 12px;">If you did not initiate this request, please secure your account immediately.</p>
 `);
 
+/**
+ * Password Reset Confirmation Template
+ */
+exports.passwordChangedTemplate = () => getBaseTemplate(`
+    <h1>Access Key Updated</h1>
+    <p>Your CV TECH account password has been successfully updated. All previous sessions have been terminated for security.</p>
+    <div style="background: #111111; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #10b981;">
+        <p style="margin: 0; color: #ffffff; font-weight: bold;">Security Status: Verified</p>
+    </div>
+    <a href="${process.env.FRONTEND_URL}/login" class="button">Login to Account</a>
+    <p style="margin-top: 32px; font-size: 12px;">If you did not make this change, contact support immediately.</p>
+`);
+
 exports.purchaseTemplate = (projectName, orderId) => getBaseTemplate(`
     <h1>Asset Deployment Complete</h1>
     <p>Your acquisition is confirmed. Your professional asset is now ready for deployment.</p>

@@ -1,5 +1,5 @@
 const transporter = require('../config/smtp.config');
-const { welcomeTemplate, otpTemplate, purchaseTemplate } = require('../templates/email.templates');
+const { welcomeTemplate, otpTemplate, purchaseTemplate, passwordChangedTemplate } = require('../templates/email.templates');
 const logger = require('../utils/logger');
 
 /**
@@ -55,6 +55,18 @@ exports.sendOTPMail = async (email, otp) => {
         subject: "Access Recovery — Security Authorization Code",
         html: otpTemplate(otp),
         text: `Your CV TECH authorization code is: ${otp}. It will expire in 5 minutes.`
+    });
+};
+
+/**
+ * Password Reset Confirmation Trigger
+ */
+exports.sendPasswordChangedEmail = async (email) => {
+    return await sendMail({
+        to: email,
+        subject: "Security Alert — Access Key Updated",
+        html: passwordChangedTemplate(),
+        text: "Your CV TECH account password has been successfully updated."
     });
 };
 
