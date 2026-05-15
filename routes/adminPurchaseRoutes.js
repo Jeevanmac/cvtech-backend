@@ -7,7 +7,7 @@ const {
     flagPurchase, 
     deletePurchase 
 } = require('../controllers/adminPurchaseController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, admin } = require('../middleware/auth');
 
 // All routes are protected and require admin role
 router.use(protect);
