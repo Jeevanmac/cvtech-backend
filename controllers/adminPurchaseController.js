@@ -47,6 +47,8 @@ const revokePurchaseAccess = async (req, res) => {
         const { purchaseId } = req.params;
         const { reason } = req.body;
 
+        logger.info(`[ADMIN] Revoking purchase access for ID: ${purchaseId}...`);
+
         const purchase = await adminPurchaseService.updatePurchaseStatus(purchaseId, {
             accessRevoked: true,
             revokedAt: Date.now(),
@@ -58,7 +60,7 @@ const revokePurchaseAccess = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        logger.info(`Admin ${req.user._id} revoked access for purchase ${purchaseId}`);
+        logger.info(`[ADMIN] Purchase ${purchaseId} revoked successfully. User access removed.`);
 
         res.status(200).json({ 
             success: true, 
@@ -80,6 +82,8 @@ const restorePurchaseAccess = async (req, res) => {
     try {
         const { purchaseId } = req.params;
 
+        logger.info(`[ADMIN] Restoring purchase access for ID: ${purchaseId}...`);
+
         const purchase = await adminPurchaseService.updatePurchaseStatus(purchaseId, {
             accessRevoked: false,
             revokedAt: null,
@@ -91,7 +95,7 @@ const restorePurchaseAccess = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        logger.info(`Admin ${req.user._id} restored access for purchase ${purchaseId}`);
+        logger.info(`[ADMIN] Purchase ${purchaseId} restored successfully.`);
 
         res.status(200).json({ 
             success: true, 
@@ -142,12 +146,14 @@ const deletePurchase = async (req, res) => {
     try {
         const { purchaseId } = req.params;
 
+        logger.info(`[ADMIN] Permanently deleting purchase record: ${purchaseId}...`);
+
         const success = await adminPurchaseService.removePurchaseRecord(purchaseId);
         if (!success) {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        logger.info(`Admin ${req.user._id} permanently deleted purchase record ${purchaseId}`);
+        logger.info(`[ADMIN] Purchase record ${purchaseId} deleted successfully.`);
 
         res.status(200).json({ success: true, message: 'Purchase record deleted permanently' });
     } catch (error) {

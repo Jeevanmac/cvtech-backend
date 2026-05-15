@@ -47,7 +47,7 @@ app.use(cors({
         ? (process.env.FRONTEND_PROD_URL || 'https://chandu-test-web.web.app') // Force strict production node targeting natively
         : (process.env.FRONTEND_URL || 'http://localhost:5173'),
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 }));
 
 // Route Middlewares
