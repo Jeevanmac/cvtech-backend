@@ -21,7 +21,8 @@ const notificationSchema = new mongoose.Schema({
             'job_posted', 
             'approval', 
             'alert', 
-            'system'
+            'system',
+            'order'
         ],
         required: true
     },

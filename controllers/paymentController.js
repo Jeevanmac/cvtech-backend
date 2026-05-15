@@ -153,12 +153,13 @@ const verifyPayment = async (req, res) => {
         
         for (let admin of admins) {
             await Notification.create({
-                userId: admin._id,
+                recipient: admin._id,
+                recipientRole: 'admin',
                 title: 'New Revenue Generated',
                 message: `${req.user.firstName} purchased ${order.projects.length} project(s) for ₹${order.totalAmount}`,
                 type: 'order',
                 metadata: { orderId: order._id }
-            });
+            }).catch(err => logger.error(`Admin notification error: ${err.message}`));
         }
 
         logger.info(`Razorpay sequence successful map over Order ${order._id}`);
@@ -185,7 +186,7 @@ const verifyPayment = async (req, res) => {
         // Add user notification for purchase
         const { createNotification } = require('./notificationController');
         await createNotification({
-            recipientId: req.user._id,
+            recipient: req.user._id,
             type: 'order',
             title: 'Asset Deployment Completed',
             message: `Purchase confirmed for ${order.projects.length} project(s). Your assets are ready for extraction.`,
@@ -338,12 +339,13 @@ const webhookPayment = async (req, res) => {
                  
                  for (let admin of admins) {
                      await Notification.create({
-                         userId: admin._id,
+                         recipient: admin._id,
+                         recipientRole: 'admin',
                          title: 'S2S Revenue Capture',
                          message: `${customer?.firstName || 'User'} purchased ${orderToUpdate.projects.length} project(s) via Webhook`,
                          type: 'order',
                          metadata: { orderId: orderToUpdate._id }
-                     });
+                     }).catch(err => logger.error(`Webhook admin notification failure: ${err.message}`));
                  }
 
                  // Send Purchase Success Email to Customer
@@ -368,7 +370,7 @@ const webhookPayment = async (req, res) => {
 
                      // Notification for customer
                      await Notification.create({
-                         userId: customer._id,
+                         recipient: customer._id,
                          title: 'Asset Deployment Completed',
                          message: `Purchase confirmed via secure channel. Your assets are ready.`,
                          type: 'order',
