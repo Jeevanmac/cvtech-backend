@@ -39,7 +39,13 @@ const userSchema = new mongoose.Schema(
                 projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
                 orderId: { type: String },
                 purchaseDate: { type: Date, default: Date.now },
-                downloadCount: { type: Number, default: 0 } // Constraint: max 5
+                downloadCount: { type: Number, default: 0 },
+                lastDownloadedAt: { type: Date },
+                accessRevoked: { type: Boolean, default: false },
+                revokedAt: { type: Date },
+                revokedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                revokeReason: { type: String },
+                suspiciousFlag: { type: Boolean, default: false }
             }
         ],
         cart: [{

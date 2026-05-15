@@ -210,6 +210,12 @@ const generateDownloadToken = async (req, res) => {
     try {
         const { projectId } = req.params;
 
+        const user = await User.findById(req.user._id);
+        const purchaseRecord = user.purchases.find(p => p.projectId.toString() === projectId);
+        
+        if (!purchaseRecord) return res.status(403).json({ success: false, message: 'Ownership verification failed.' });
+        if (purchaseRecord.accessRevoked) return res.status(403).json({ success: false, message: 'Access to this project has been revoked by administration.' });
+
         const validOrder = await Order.findOne({ userId: req.user._id, 'projects.projectId': projectId, status: 'success' });
         if (!validOrder) return res.status(403).json({ success: false, message: 'Transaction missing or invalid.' });
 
