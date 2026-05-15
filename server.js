@@ -66,7 +66,7 @@ app.use('/api/contact', contactRoutes);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
-    res.status(200).json({ success: true, message: 'CV TECH Monolith API is running seamlessly.' });
+    res.status(200).json({ success: true, message: 'Aroh Monolith API is running seamlessly.' });
 });
 
 // Serve Frontend Static Assets Mapping 
@@ -114,8 +114,8 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         verifyTransporter();
         
         server.listen(PORT, () => {
-            console.log(`🚀 CV TECH Monolith running on http://localhost:${PORT}`);
-            logger.info(`CV TECH Monolith running on port ${PORT}`);
+            console.log(`🚀 Aroh Monolith running on http://localhost:${PORT}`);
+            logger.info(`Aroh Monolith running on port ${PORT}`);
         });
     })
     .catch(err => {

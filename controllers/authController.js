@@ -66,7 +66,7 @@ const signup = async (req, res) => {
             recipientRole: 'admin',
             type: 'alert',
             title: '👤 New User Registered',
-            message: `${firstName} ${lastName} has joined CV TECH.`,
+            message: `${firstName} ${lastName} has joined Aroh.`,
             link: '/admin/users'
         }).catch(err => logger.error(`Admin notification failure: ${err.message}`));
 
@@ -92,7 +92,7 @@ const signup = async (req, res) => {
         await createNotification({
             recipientId: user._id,
             type: 'alert',
-            title: 'Welcome to CVTECH',
+            title: 'Welcome to Aroh',
             message: 'Identity registered successfully. Your personal workspace is ready.',
             link: '/dashboard'
         }).catch(err => logger.error(`User welcome notification failure: ${err.message}`));

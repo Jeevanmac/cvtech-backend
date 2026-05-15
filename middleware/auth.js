@@ -37,7 +37,7 @@ const protect = async (req, res, next) => {
         if (token === 'DEVELOPER_USER_TOKEN') {
             req.user = {
                 id: 'debug-user-id',
-                email: 'dev@cvtech.io',
+                email: 'dev@aroh.io',
                 role: 'user',
                 firstName: 'Dev',
                 lastName: 'Tester'

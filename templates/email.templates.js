@@ -1,5 +1,5 @@
 /**
- * Clean HTML Email Templates for CV TECH
+ * Clean HTML Email Templates for Aroh
  * Optimized for mobile, dark/light modes, and branding consistency.
  */
 
@@ -28,10 +28,10 @@ const getBaseTemplate = (content) => `
 <body>
     <div class="wrapper">
         <div class="container">
-            <div class="header"><div class="logo">CV TECH</div></div>
+            <div class="header"><div class="logo">Aroh</div></div>
             <div class="content">${content}</div>
             <div class="footer">
-                &copy; ${new Date().getFullYear()} CV TECH Architecture. Assets provided by professional infrastructure.<br>
+                &copy; ${new Date().getFullYear()} Aroh Architecture. Assets provided by professional infrastructure.<br>
                 Support: ${process.env.ADMIN_PHONE || '+91 9876543210'}
             </div>
         </div>
@@ -61,7 +61,7 @@ exports.otpTemplate = (otp) => getBaseTemplate(`
  */
 exports.passwordChangedTemplate = () => getBaseTemplate(`
     <h1>Access Key Updated</h1>
-    <p>Your CV TECH account password has been successfully updated. All previous sessions have been terminated for security.</p>
+    <p>Your Aroh account password has been successfully updated. All previous sessions have been terminated for security.</p>
     <div style="background: #111111; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #10b981;">
         <p style="margin: 0; color: #ffffff; font-weight: bold;">Security Status: Verified</p>
     </div>
@@ -85,7 +85,7 @@ exports.purchaseTemplate = (projects, orderId) => getBaseTemplate(`
 
     <h3 style="font-size: 14px; color: #ffffff;">DOWNLOAD INSTRUCTIONS:</h3>
     <ol style="font-size: 13px; color: #94a3b8; padding-left: 20px;">
-        <li>Login to your <span class="text-white">CV TECH Dashboard</span></li>
+        <li>Login to your <span class="text-white">Aroh Dashboard</span></li>
         <li>Navigate to the <span class="text-primary">"My Projects"</span> section</li>
         <li>Select your project and trigger the secure extraction</li>
     </ol>

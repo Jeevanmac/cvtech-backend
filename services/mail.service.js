@@ -8,7 +8,7 @@ const logger = require('../utils/logger');
  */
 
 // Use EMAIL_FROM for the public sender identity (must be verified in Brevo)
-const SENDER = `"CV TECH" <${process.env.EMAIL_FROM || process.env.SMTP_USER}>`;
+const SENDER = `"Aroh" <${process.env.EMAIL_FROM || process.env.SMTP_USER}>`;
 
 /**
  * Core Dispatcher Engine
@@ -22,7 +22,7 @@ const sendMail = async ({ to, subject, html, text }) => {
             from: SENDER,
             to,
             subject,
-            text: text || "Important notification from CV TECH Ecosystem.",
+            text: text || "Important notification from Aroh Ecosystem.",
             html
         });
 
@@ -41,9 +41,9 @@ const sendMail = async ({ to, subject, html, text }) => {
 exports.sendWelcomeMail = async (email, name) => {
     return await sendMail({
         to: email,
-        subject: "Identity Registered Successfully — Welcome to CV TECH",
+        subject: "Identity Registered Successfully — Welcome to Aroh",
         html: welcomeTemplate(name),
-        text: `Welcome to CV TECH, ${name}. Your identity has been successfully registered.`
+        text: `Welcome to Aroh, ${name}. Your identity has been successfully registered.`
     });
 };
 
@@ -55,7 +55,7 @@ exports.sendOTPMail = async (email, otp) => {
         to: email,
         subject: "Access Recovery — Security Authorization Code",
         html: otpTemplate(otp),
-        text: `Your CV TECH authorization code is: ${otp}. It will expire in 5 minutes.`
+        text: `Your Aroh authorization code is: ${otp}. It will expire in 5 minutes.`
     });
 };
 
@@ -67,7 +67,7 @@ exports.sendPasswordChangedEmail = async (email) => {
         to: email,
         subject: "Security Alert — Access Key Updated",
         html: passwordChangedTemplate(),
-        text: "Your CV TECH account password has been successfully updated."
+        text: "Your Aroh account password has been successfully updated."
     });
 };
 
@@ -89,7 +89,7 @@ exports.sendPurchaseMail = async (email, projects, orderId) => {
 exports.sendPaymentFailedMail = async (email, orderId, reason) => {
     return await sendMail({
         to: email,
-        subject: "Transaction Interrupted — CV TECH Payment Alert",
+        subject: "Transaction Interrupted — Aroh Payment Alert",
         html: paymentFailedTemplate(orderId, reason),
         text: `Your transaction (Order ID: ${orderId}) could not be completed. Reason: ${reason}`
     });
