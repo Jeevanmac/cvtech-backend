@@ -94,9 +94,33 @@ const getDashboardStats = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Delete a purchase from user library (Permanent unless repurchased)
+ * @route   DELETE /api/profile/purchases/:purchaseId
+ * @access  Private
+ */
+const deletePurchase = async (req, res) => {
+    try {
+        const { purchaseId } = req.params;
+        const user = await User.findById(req.user._id);
+
+        if (!user) return res.status(404).json({ success: false, message: 'Identity missing' });
+
+        // Filter out the purchase record
+        user.purchases = user.purchases.filter(p => p._id.toString() !== purchaseId);
+        await user.save();
+
+        res.status(200).json({ success: true, message: 'Asset removed from library.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Purge sequence failed.' });
+    }
+};
+
 module.exports = {
     toggleWishlist,
     addToCart,
     removeFromCart,
-    getDashboardStats
+    getDashboardStats,
+    deletePurchase
 };
