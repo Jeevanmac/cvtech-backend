@@ -115,7 +115,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         
         server.listen(PORT, () => {
             console.log(`🚀 Aroh Monolith running on http://localhost:${PORT}`);
-            logger.info(`Aroh Monolith running on port ${PORT}`);
+            logger.info(`Aroh Monolith running on port ${PORT} [DEPL_SYNC: 2026-05-15]`);
         });
     })
     .catch(err => {
