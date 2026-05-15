@@ -1,5 +1,5 @@
 const transporter = require('../config/smtp.config');
-const { welcomeTemplate, otpTemplate, purchaseTemplate, passwordChangedTemplate } = require('../templates/email.templates');
+const { welcomeTemplate, otpTemplate, purchaseTemplate, passwordChangedTemplate, paymentFailedTemplate } = require('../templates/email.templates');
 const logger = require('../utils/logger');
 
 /**
@@ -72,14 +72,26 @@ exports.sendPasswordChangedEmail = async (email) => {
 };
 
 /**
- * Purchase Success Email Trigger
+ * Purchase Success Email Trigger (Grouped)
  */
-exports.sendPurchaseMail = async (email, projectName, orderId) => {
+exports.sendPurchaseMail = async (email, projects, orderId) => {
     return await sendMail({
         to: email,
         subject: "Asset Deployment Complete — Purchase Confirmed",
-        html: purchaseTemplate(projectName, orderId),
-        text: `Your purchase for ${projectName} is confirmed. Order ID: ${orderId}.`
+        html: purchaseTemplate(projects, orderId),
+        text: `Your purchase for ${projects.length} project(s) is confirmed. Order ID: ${orderId}.`
+    });
+};
+
+/**
+ * Payment Failure Email Trigger
+ */
+exports.sendPaymentFailedMail = async (email, orderId, reason) => {
+    return await sendMail({
+        to: email,
+        subject: "Transaction Interrupted — CV TECH Payment Alert",
+        html: paymentFailedTemplate(orderId, reason),
+        text: `Your transaction (Order ID: ${orderId}) could not be completed. Reason: ${reason}`
     });
 };
 

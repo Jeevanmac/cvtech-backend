@@ -164,19 +164,18 @@ const verifyPayment = async (req, res) => {
         logger.info(`Razorpay sequence successful map over Order ${order._id}`);
 
         // Trigger Purchase Success Email & Notification
-        const Settings = require('../models/Settings');
         const { sendPurchaseMail } = require('../services/mail.service');
         
-        const adminSettings = await Settings.findOne() || { 
-            adminSupportEmail: process.env.CONTACT_RECEIVER_EMAIL, 
-            adminPhoneNumber: '+91 9876543210' 
-        };
-
+        const projectTitles = [];
         for (let projInfo of order.projects) {
             const project = await Project.findById(projInfo.projectId);
-            sendPurchaseMail(req.user.email, project.title, order.razorpayOrderId).then(res => {
+            if (project) projectTitles.push(project.title);
+        }
+
+        if (projectTitles.length > 0) {
+            sendPurchaseMail(req.user.email, projectTitles, order.razorpayOrderId).then(res => {
                 if (res.success) {
-                    console.log(`[PAYMENT] Purchase email delivered for Order: ${order._id}`);
+                    console.log(`[PAYMENT] Consolidated purchase email delivered for Order: ${order._id}`);
                 } else {
                     console.error(`[PAYMENT] Purchase email delivery failed for Order: ${order._id} | Error: ${res.error}`);
                 }
@@ -348,19 +347,19 @@ const webhookPayment = async (req, res) => {
                  }
 
                  // Send Purchase Success Email to Customer
-                 const Settings = require('../models/Settings');
                  const { sendPurchaseMail } = require('../services/mail.service');
-                 const adminSettings = await Settings.findOne() || { 
-                     adminSupportEmail: process.env.CONTACT_RECEIVER_EMAIL, 
-                     adminPhoneNumber: '+91 9876543210' 
-                 };
 
                  if (customer) {
+                      const projectTitles = [];
                       for (let projInfo of orderToUpdate.projects) {
                           const project = await Project.findById(projInfo.projectId);
-                          sendPurchaseMail(customer.email, project.title, orderToUpdate.razorpayOrderId).then(res => {
+                          if (project) projectTitles.push(project.title);
+                      }
+
+                      if (projectTitles.length > 0) {
+                          sendPurchaseMail(customer.email, projectTitles, orderToUpdate.razorpayOrderId).then(res => {
                               if (res.success) {
-                                  console.log(`[WEBHOOK] Purchase email delivered for Order: ${orderToUpdate._id}`);
+                                  console.log(`[WEBHOOK] Consolidated purchase email delivered for Order: ${orderToUpdate._id}`);
                               } else {
                                   console.error(`[WEBHOOK] Purchase email delivery failed for Order: ${orderToUpdate._id} | Error: ${res.error}`);
                               }
@@ -379,7 +378,16 @@ const webhookPayment = async (req, res) => {
             }
         } else if (event === 'payment.failed') {
             const rzpOrderId = payloadObject.order_id;
-            await Order.findOneAndUpdate({ razorpayOrderId: rzpOrderId }, { status: 'failed' });
+            const order = await Order.findOneAndUpdate({ razorpayOrderId: rzpOrderId }, { status: 'failed' });
+            
+            if (order) {
+                const customer = await User.findById(order.userId);
+                if (customer) {
+                    const { sendPaymentFailedMail } = require('../services/mail.service');
+                    sendPaymentFailedMail(customer.email, rzpOrderId, payloadObject.error_description || 'Transaction declined by bank.')
+                        .catch(err => logger.error(`Failed to send payment failure email: ${err.message}`));
+                }
+            }
             logger.info(`Webhook correctly registered dynamic failure constraints cleanly over order ${rzpOrderId}`);
         }
 

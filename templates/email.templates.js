@@ -69,13 +69,51 @@ exports.passwordChangedTemplate = () => getBaseTemplate(`
     <p style="margin-top: 32px; font-size: 12px;">If you did not make this change, contact support immediately.</p>
 `);
 
-exports.purchaseTemplate = (projectName, orderId) => getBaseTemplate(`
+exports.purchaseTemplate = (projects, orderId) => getBaseTemplate(`
     <h1>Asset Deployment Complete</h1>
-    <p>Your acquisition is confirmed. Your professional asset is now ready for deployment.</p>
-    <div style="background: #111111; padding: 20px; border-radius: 12px; margin: 20px 0;">
-        <p style="margin: 0; color: #ffffff;"><strong>Project:</strong> ${projectName}</p>
-        <p style="margin: 8px 0 0; font-size: 12px;"><strong>Order ID:</strong> ${orderId}</p>
+    <p>Your acquisition is confirmed. Your professional assets are now ready for deployment in your workspace.</p>
+    
+    <div style="background: #111111; padding: 24px; border-radius: 16px; margin: 24px 0; border: 1px solid #1e293b;">
+        <h3 style="margin: 0 0 12px; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px;">Acquired Assets:</h3>
+        <ul style="margin: 0; padding-left: 20px; color: #a855f7; font-weight: bold;">
+            ${projects.map(p => `<li style="margin-bottom: 4px;">${p}</li>`).join('')}
+        </ul>
+        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b; font-size: 11px;">
+            <strong>Order ID:</strong> <span style="color: #ffffff;">${orderId}</span>
+        </div>
     </div>
+
+    <h3 style="font-size: 14px; color: #ffffff;">DOWNLOAD INSTRUCTIONS:</h3>
+    <ol style="font-size: 13px; color: #94a3b8; padding-left: 20px;">
+        <li>Login to your <span class="text-white">CV TECH Dashboard</span></li>
+        <li>Navigate to the <span class="text-primary">"My Projects"</span> section</li>
+        <li>Select your project and trigger the secure extraction</li>
+    </ol>
+
     <a href="${process.env.FRONTEND_URL}/dashboard/my-projects" class="button">Access My Assets</a>
-    <p style="margin-top: 32px; font-size: 12px;">For technical deployment support: <span class="text-primary">${process.env.ADMIN_EMAIL}</span></p>
+    
+    <p style="margin-top: 32px; font-size: 11px; border-top: 1px solid #1e293b; pt-4;">
+        For technical deployment support: <span class="text-primary">${process.env.ADMIN_EMAIL}</span>
+    </p>
+`);
+
+/**
+ * Payment Failure Template
+ */
+exports.paymentFailedTemplate = (orderId, reason) => getBaseTemplate(`
+    <h1 style="color: #ef4444;">Transaction Interrupted</h1>
+    <p>We were unable to complete your purchase (Order: <span class="text-white">${orderId}</span>). Your account has not been charged, or a refund will be initiated if a deduction occurred.</p>
+    
+    <div style="background: #111111; padding: 24px; border-radius: 16px; margin: 24px 0; border-left: 4px solid #ef4444;">
+        <p style="margin: 0; font-weight: bold; color: #ffffff;">Status: Payment Failed</p>
+        <p style="margin: 8px 0 0; font-size: 12px;">Reason: ${reason || 'Bank declined or validation mismatch'}</p>
+    </div>
+
+    <p>Please try again or use a different payment method. If you believe this is an error, please contact our support team.</p>
+    
+    <a href="${process.env.FRONTEND_URL}/cart" class="button">Return to Cart</a>
+    
+    <p style="margin-top: 32px; font-size: 11px;">
+        Support Terminal: <span class="text-primary">${process.env.ADMIN_EMAIL}</span>
+    </p>
 `);
