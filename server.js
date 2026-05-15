@@ -111,7 +111,6 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         initSocket(server);
         
         // Initialize SMTP Verification
-        const { verifyTransporter } = require('./services/mail.service');
         verifyTransporter();
         
         server.listen(PORT, () => {
