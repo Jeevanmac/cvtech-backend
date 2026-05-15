@@ -1,6 +1,4 @@
-const User = require('../models/User');
-const Project = require('../models/Project');
-const Order = require('../models/Order');
+const adminPurchaseService = require('../services/adminPurchaseService');
 const logger = require('../utils/logger');
 
 /**
@@ -10,15 +8,12 @@ const logger = require('../utils/logger');
  */
 const getUserPurchases = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id)
-            .select('firstName lastName email role createdAt purchases')
-            .populate('purchases.projectId', 'title images price category');
+        const user = await adminPurchaseService.getUserPurchases(req.params.id);
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Calculate some stats for the admin
         const totalPurchases = user.purchases.length;
         const totalDownloads = user.purchases.reduce((acc, curr) => acc + (curr.downloadCount || 0), 0);
 
@@ -52,29 +47,23 @@ const revokePurchaseAccess = async (req, res) => {
         const { purchaseId } = req.params;
         const { reason } = req.body;
 
-        const user = await User.findOne({ 'purchases._id': purchaseId });
-        if (!user) {
+        const purchase = await adminPurchaseService.updatePurchaseStatus(purchaseId, {
+            accessRevoked: true,
+            revokedAt: Date.now(),
+            revokedBy: req.user._id,
+            revokeReason: reason || 'Administrative revocation'
+        });
+
+        if (!purchase) {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        const purchaseIndex = user.purchases.findIndex(p => p._id.toString() === purchaseId);
-        if (purchaseIndex === -1) {
-            return res.status(404).json({ success: false, message: 'Purchase not found in user record' });
-        }
-
-        user.purchases[purchaseIndex].accessRevoked = true;
-        user.purchases[purchaseIndex].revokedAt = Date.now();
-        user.purchases[purchaseIndex].revokedBy = req.user._id;
-        user.purchases[purchaseIndex].revokeReason = reason || 'Administrative revocation';
-
-        await user.save();
-
-        logger.info(`Admin ${req.user._id} revoked access for purchase ${purchaseId} (User: ${user._id})`);
+        logger.info(`Admin ${req.user._id} revoked access for purchase ${purchaseId}`);
 
         res.status(200).json({ 
             success: true, 
             message: 'Access revoked successfully',
-            purchase: user.purchases[purchaseIndex]
+            purchase
         });
     } catch (error) {
         logger.error(`Error revoking purchase access: ${error.message}`);
@@ -91,29 +80,23 @@ const restorePurchaseAccess = async (req, res) => {
     try {
         const { purchaseId } = req.params;
 
-        const user = await User.findOne({ 'purchases._id': purchaseId });
-        if (!user) {
+        const purchase = await adminPurchaseService.updatePurchaseStatus(purchaseId, {
+            accessRevoked: false,
+            revokedAt: null,
+            revokedBy: null,
+            revokeReason: null
+        });
+
+        if (!purchase) {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        const purchaseIndex = user.purchases.findIndex(p => p._id.toString() === purchaseId);
-        if (purchaseIndex === -1) {
-            return res.status(404).json({ success: false, message: 'Purchase not found in user record' });
-        }
-
-        user.purchases[purchaseIndex].accessRevoked = false;
-        user.purchases[purchaseIndex].revokedAt = null;
-        user.purchases[purchaseIndex].revokedBy = null;
-        user.purchases[purchaseIndex].revokeReason = null;
-
-        await user.save();
-
-        logger.info(`Admin ${req.user._id} restored access for purchase ${purchaseId} (User: ${user._id})`);
+        logger.info(`Admin ${req.user._id} restored access for purchase ${purchaseId}`);
 
         res.status(200).json({ 
             success: true, 
             message: 'Access restored successfully',
-            purchase: user.purchases[purchaseIndex]
+            purchase
         });
     } catch (error) {
         logger.error(`Error restoring purchase access: ${error.message}`);
@@ -129,25 +112,20 @@ const restorePurchaseAccess = async (req, res) => {
 const flagPurchase = async (req, res) => {
     try {
         const { purchaseId } = req.params;
-        const { flag } = req.body; // boolean
+        const { flag } = req.body;
 
-        const user = await User.findOne({ 'purchases._id': purchaseId });
-        if (!user) {
+        const purchase = await adminPurchaseService.updatePurchaseStatus(purchaseId, {
+            suspiciousFlag: flag !== undefined ? flag : true
+        });
+
+        if (!purchase) {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        const purchaseIndex = user.purchases.findIndex(p => p._id.toString() === purchaseId);
-        if (purchaseIndex === -1) {
-            return res.status(404).json({ success: false, message: 'Purchase not found in user record' });
-        }
-
-        user.purchases[purchaseIndex].suspiciousFlag = flag !== undefined ? flag : true;
-        await user.save();
-
         res.status(200).json({ 
             success: true, 
-            message: `Purchase ${user.purchases[purchaseIndex].suspiciousFlag ? 'flagged' : 'unflagged'} successfully`,
-            purchase: user.purchases[purchaseIndex]
+            message: `Purchase ${purchase.suspiciousFlag ? 'flagged' : 'unflagged'} successfully`,
+            purchase
         });
     } catch (error) {
         logger.error(`Error flagging purchase: ${error.message}`);
@@ -156,7 +134,7 @@ const flagPurchase = async (req, res) => {
 };
 
 /**
- * @desc    Permanently delete a purchase record (revokes ownership completely)
+ * @desc    Permanently delete a purchase record
  * @route   DELETE /api/admin/purchases/:purchaseId
  * @access  Private/Admin
  */
@@ -164,15 +142,12 @@ const deletePurchase = async (req, res) => {
     try {
         const { purchaseId } = req.params;
 
-        const user = await User.findOne({ 'purchases._id': purchaseId });
-        if (!user) {
+        const success = await adminPurchaseService.removePurchaseRecord(purchaseId);
+        if (!success) {
             return res.status(404).json({ success: false, message: 'Purchase record not found' });
         }
 
-        user.purchases = user.purchases.filter(p => p._id.toString() !== purchaseId);
-        await user.save();
-
-        logger.info(`Admin ${req.user._id} permanently deleted purchase record ${purchaseId} for user ${user._id}`);
+        logger.info(`Admin ${req.user._id} permanently deleted purchase record ${purchaseId}`);
 
         res.status(200).json({ success: true, message: 'Purchase record deleted permanently' });
     } catch (error) {
