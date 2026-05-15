@@ -7,11 +7,11 @@ const {
     flagPurchase, 
     deletePurchase 
 } = require('../controllers/adminPurchaseController');
-const { protect, admin } = require('../middleware/adminMiddleware');
+const { protect, isAdmin } = require('../middleware/auth');
 
 // All routes are protected and require admin role
 router.use(protect);
-router.use(admin);
+router.use(isAdmin);
 
 router.get('/users/:id/purchases', getUserPurchases);
 router.patch('/purchases/:purchaseId/revoke', revokePurchaseAccess);
