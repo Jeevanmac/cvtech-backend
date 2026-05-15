@@ -19,7 +19,7 @@ const getBaseTemplate = (content) => `
         .footer { padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b; }
         .button { display: inline-block; padding: 14px 28px; background: #a855f7; color: #ffffff !important; text-decoration: none; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; margin-top: 24px; }
         .otp-box { background: #111111; border: 1px solid #a855f7; padding: 20px; border-radius: 12px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #a855f7; margin: 24px 0; }
-        h1 { font-size: 22px; font-weight: 900; margin: 0 0 16px; text-transform: uppercase; }
+        h1 { font-size: 22px; font-weight: 900; margin: 0 0 16px; text-transform: uppercase; color: #ffffff; }
         p { font-size: 14px; line-height: 1.6; color: #94a3b8; }
         .text-white { color: #ffffff; }
         .text-primary { color: #a855f7; }
@@ -70,7 +70,7 @@ exports.passwordChangedTemplate = () => getBaseTemplate(`
 `);
 
 exports.purchaseTemplate = (projects, orderId) => getBaseTemplate(`
-    <h1>Asset Deployment Complete</h1>
+    <h1 style="color: #ffffff; font-weight: 900;">Asset Deployment Complete</h1>
     <p>Your acquisition is confirmed. Your professional assets are now ready for deployment in your workspace.</p>
     
     <div style="background: #111111; padding: 24px; border-radius: 16px; margin: 24px 0; border: 1px solid #1e293b;">
@@ -79,7 +79,7 @@ exports.purchaseTemplate = (projects, orderId) => getBaseTemplate(`
             ${projects.map(p => `<li style="margin-bottom: 4px;">${p}</li>`).join('')}
         </ul>
         <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b; font-size: 11px;">
-            <strong>Order ID:</strong> <span style="color: #ffffff;">${orderId}</span>
+            <strong style="color: #ffffff; font-weight: 900;">Order ID:</strong> <span style="color: #ffffff; font-weight: bold;">${orderId}</span>
         </div>
     </div>
 
