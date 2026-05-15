@@ -13,6 +13,8 @@ router.get('/messages', getAdminMessages);
 router.get('/logs', getSystemLogs);
 router.get('/users', getAllUsers);
 router.get('/orders', getOrders);
+router.delete('/orders', clearAllOrders);
+router.delete('/orders/:id', deleteOrder);
 router.delete('/users/:id', deleteUser);
 router.patch('/users/:id/suspend', toggleSuspendUser);
 

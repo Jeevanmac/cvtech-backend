@@ -346,8 +346,47 @@ module.exports = {
     demoteAdmin,
     getAdminMessages,
     getOrders,
+    deleteOrder,
+    clearAllOrders,
     deleteUser,
     toggleSuspendUser
+};
+
+/**
+ * @desc    Delete a single transaction log entry
+ * @route   DELETE /api/admin/orders/:id
+ * @access  Private/Admin
+ */
+const deleteOrder = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+        await Order.findByIdAndDelete(req.params.id);
+        logger.info(`[ADMIN] ${req.user.email} deleted transaction log: ${req.params.id}`);
+        
+        res.status(200).json({ success: true, message: 'Transaction log purged.' });
+    } catch (err) {
+        logger.error(`Order deletion failure: ${err.message}`);
+        res.status(500).json({ success: false, message: 'Registry erasure fault.' });
+    }
+};
+
+/**
+ * @desc    Clear all transaction logs (Admin only)
+ * @route   DELETE /api/admin/orders
+ * @access  Private/Admin
+ */
+const clearAllOrders = async (req, res) => {
+    try {
+        await Order.deleteMany({});
+        logger.warn(`[ADMIN] ${req.user.email} WIPED ALL TRANSACTION LOGS`);
+        
+        res.status(200).json({ success: true, message: 'All transaction logs permanently cleared.' });
+    } catch (err) {
+        logger.error(`Bulk order deletion failure: ${err.message}`);
+        res.status(500).json({ success: false, message: 'Mass registry erasure fault.' });
+    }
 };
 
 /**
