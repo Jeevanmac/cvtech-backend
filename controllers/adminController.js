@@ -333,24 +333,6 @@ const getOrders = async (req, res) => {
     }
 };
 
-module.exports = {
-    grantAccess,
-    revokeAccess,
-    resetDownloadCount,
-    getAnalytics,
-    getSystemLogs,
-    updateUserRole,
-    getAllUsers,
-    createAdmin,
-    promoteUser,
-    demoteAdmin,
-    getAdminMessages,
-    getOrders,
-    deleteOrder,
-    clearAllOrders,
-    deleteUser,
-    toggleSuspendUser
-};
 
 /**
  * @desc    Delete a single transaction log entry
@@ -454,3 +436,22 @@ async function toggleSuspendUser(req, res) {
         res.status(500).json({ success: false, message: 'Suspension state mapping fault.' });
     }
 }
+
+module.exports = {
+    grantAccess,
+    revokeAccess,
+    resetDownloadCount,
+    getAnalytics,
+    getAdminMessages,
+    getSystemLogs,
+    updateUserRole,
+    getAllUsers,
+    createAdmin,
+    promoteUser,
+    demoteAdmin,
+    getOrders,
+    deleteOrder,
+    clearAllOrders,
+    deleteUser,
+    toggleSuspendUser
+};
