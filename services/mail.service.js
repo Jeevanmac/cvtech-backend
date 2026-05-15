@@ -7,7 +7,8 @@ const logger = require('../utils/logger');
  * Clean, modular architecture for high-performance transactional emails.
  */
 
-const SENDER = `"CV TECH" <${process.env.SMTP_USER}>`;
+// Use EMAIL_FROM for the public sender identity (must be verified in Brevo)
+const SENDER = `"CV TECH" <${process.env.EMAIL_FROM || process.env.SMTP_USER}>`;
 
 /**
  * Core Dispatcher Engine
