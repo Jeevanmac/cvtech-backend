@@ -6,9 +6,9 @@ const logger = require('../utils/logger');
 
 /**
  * @desc    Generate a random unique coupon code
- * @returns {string} e.g., CVTECH-A1B2-C3D4
+ * @returns {string} e.g., AROH-A1B2-C3D4
  */
-const generateCode = (prefix = 'CVTECH') => {
+const generateCode = (prefix = 'AROH') => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous characters
     const part1 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     const part2 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -35,7 +35,7 @@ const createCoupon = async (req, res) => {
 
         const coupons = [];
         for (let i = 0; i < totalToGenerate; i++) {
-            const code = generateCode(customPrefix || 'CVTECH');
+            const code = generateCode(customPrefix || 'AROH');
             coupons.push({
                 code,
                 campaignName,
