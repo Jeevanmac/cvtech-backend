@@ -33,6 +33,10 @@ const createCoupon = async (req, res) => {
             customPrefix 
         } = req.body;
 
+        if (!campaignName || !discountPercentage || !expiryDate) {
+            return res.status(400).json({ success: false, message: 'Missing mandatory promotional parameters (Name, Discount, or Expiry).' });
+        }
+
         const coupons = [];
         for (let i = 0; i < totalToGenerate; i++) {
             const code = generateCode(customPrefix || 'AROH');
@@ -40,12 +44,12 @@ const createCoupon = async (req, res) => {
                 code,
                 campaignName,
                 discountPercentage,
-                usageLimit,
-                expiryDate,
-                minimumPurchase,
-                applicableProjects,
-                isGlobal,
-                createdByAdmin: req.user._id
+                usageLimit: usageLimit || 100,
+                expiryDate: new Date(expiryDate),
+                minimumPurchase: minimumPurchase || 0,
+                applicableProjects: isGlobal ? [] : (applicableProjects || []),
+                isGlobal: isGlobal === undefined ? true : isGlobal,
+                createdByAdmin: req.user._id || req.user.id
             });
         }
 
@@ -55,7 +59,17 @@ const createCoupon = async (req, res) => {
         res.status(201).json({ success: true, coupons: createdCoupons });
     } catch (err) {
         logger.error(`Coupon creation error: ${err.message}`);
-        res.status(500).json({ success: false, message: 'Promotional engine failed to ignite.' });
+        console.error('COUPON_CREATE_ERROR:', err);
+        
+        if (err.name === 'ValidationError') {
+            const message = Object.values(err.errors).map(val => val.message).join(', ');
+            return res.status(400).json({ success: false, message });
+        }
+        
+        res.status(500).json({ 
+            success: false, 
+            message: `Promotional engine failure: ${err.message || 'Unknown structural fault'}` 
+        });
     }
 };
 
