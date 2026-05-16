@@ -161,7 +161,17 @@ const verifyPayment = async (req, res) => {
         logger.info(`[DATABASE] Order ${order._id} status updated to SUCCESS`);
 
         // Bind purchases securely to the tracking model of the user to build their dashboard later
-        logger.info(`[DATABASE] Access unlocked for Project ${projInfo.projectId} to User ${req.user._id}`);
+        for (let projInfo of order.projects) {
+            await User.findByIdAndUpdate(req.user._id, {
+                $push: { 
+                    purchases: { 
+                        projectId: projInfo.projectId, 
+                        orderId: order._id,
+                        downloadCount: 0
+                    } 
+                }
+            });
+            logger.info(`[DATABASE] Access unlocked for Project ${projInfo.projectId} to User ${req.user._id}`);
         }
 
         // --- NEW: Record Coupon Usage if applicable ---
