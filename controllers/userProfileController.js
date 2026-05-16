@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Project = require('../models/Project');
+const generateSignedUrl = require('../utils/generateSignedUrl');
 
 /**
  * @desc    Toggle project in User Wishlist (If exists, remove. If missing, add)
@@ -82,12 +83,25 @@ const getDashboardStats = async (req, res) => {
     try {
         // Deep populate the nested projectId in the purchases array
         const user = await User.findById(req.user._id)
-                               .populate('purchases.projectId', 'title images category techStack documentationUrl')
+                               .populate('purchases.projectId', 'title images imageKeys category techStack documentationUrl')
                                .select('-password');
                                
         if (!user) return res.status(404).json({ success: false, message: 'User configuration lost.' });
 
-        res.status(200).json({ success: true, purchases: user.purchases, userProfile: user });
+        // Generate signed URLs for all purchased projects
+        const purchases = await Promise.all(user.purchases.map(async (purchase) => {
+            const purchaseObj = purchase.toObject();
+            if (purchaseObj.projectId && purchaseObj.projectId.imageKeys) {
+                purchaseObj.projectId.imageUrls = await Promise.all(
+                    purchaseObj.projectId.imageKeys.map(key => generateSignedUrl(key))
+                );
+            } else if (purchaseObj.projectId) {
+                purchaseObj.projectId.imageUrls = [];
+            }
+            return purchaseObj;
+        }));
+
+        res.status(200).json({ success: true, purchases, userProfile: user });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed fetching dashboard telemetrics.' });

@@ -1,5 +1,6 @@
 const adminPurchaseService = require('../services/adminPurchaseService');
 const logger = require('../utils/logger');
+const generateSignedUrl = require('../utils/generateSignedUrl');
 
 /**
  * @desc    Get all purchases for a specific user with full project details
@@ -17,6 +18,19 @@ const getUserPurchases = async (req, res) => {
         const totalPurchases = user.purchases.length;
         const totalDownloads = user.purchases.reduce((acc, curr) => acc + (curr.downloadCount || 0), 0);
 
+        // Generate signed URLs for all projects in the purchases
+        const purchases = await Promise.all(user.purchases.map(async (purchase) => {
+            const purchaseObj = purchase.toObject();
+            if (purchaseObj.projectId && purchaseObj.projectId.imageKeys) {
+                purchaseObj.projectId.imageUrls = await Promise.all(
+                    purchaseObj.projectId.imageKeys.map(key => generateSignedUrl(key))
+                );
+            } else if (purchaseObj.projectId) {
+                purchaseObj.projectId.imageUrls = [];
+            }
+            return purchaseObj;
+        }));
+
         res.status(200).json({ 
             success: true, 
             user: {
@@ -29,7 +43,7 @@ const getUserPurchases = async (req, res) => {
                 totalPurchases,
                 totalDownloads
             },
-            purchases: user.purchases 
+            purchases: purchases 
         });
     } catch (error) {
         logger.error(`Error fetching user purchases for admin: ${error.message}`);

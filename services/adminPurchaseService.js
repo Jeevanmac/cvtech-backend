@@ -6,7 +6,7 @@ const User = require('../models/User');
 const getUserPurchases = async (userId) => {
     return await User.findById(userId)
         .select('firstName lastName email role createdAt purchases')
-        .populate('purchases.projectId', 'title images price category');
+        .populate('purchases.projectId', 'title images price category imageKeys');
 };
 
 const updatePurchaseStatus = async (purchaseId, updateData) => {

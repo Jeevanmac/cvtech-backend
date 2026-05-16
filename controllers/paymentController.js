@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { generateDownloadUrl } = require('../utils/s3');
 const logger = require('../utils/logger');
 const axios = require('axios');
+const generateSignedUrl = require('../utils/generateSignedUrl');
 
 // Internal verification
 const verifyRecaptcha = async (token) => {
@@ -413,9 +414,27 @@ const webhookPayment = async (req, res) => {
  */
 const getMyOrders = async (req, res) => {
     try {
-        const orders = await Order.find({ userId: req.user._id, status: 'success' })
-            .populate('projects.projectId', 'title images category')
+        const rawOrders = await Order.find({ userId: req.user._id, status: 'success' })
+            .populate('projects.projectId', 'title images imageKeys category')
             .sort({ createdAt: -1 });
+            
+        // Generate signed URLs for all projects in the orders
+        const orders = await Promise.all(rawOrders.map(async (order) => {
+            const orderObj = order.toObject();
+            if (orderObj.projects && orderObj.projects.length > 0) {
+                orderObj.projects = await Promise.all(orderObj.projects.map(async (item) => {
+                    if (item.projectId && item.projectId.imageKeys) {
+                        item.projectId.imageUrls = await Promise.all(
+                            item.projectId.imageKeys.map(key => generateSignedUrl(key))
+                        );
+                    } else if (item.projectId) {
+                        item.projectId.imageUrls = [];
+                    }
+                    return item;
+                }));
+            }
+            return orderObj;
+        }));
             
         res.status(200).json({ success: true, orders });
     } catch (error) {

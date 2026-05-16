@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const Project = require('../models/Project');
 const Message = require('../models/Message');
 const logger = require('../utils/logger');
+const generateSignedUrl = require('../utils/generateSignedUrl');
 const fs = require('fs');
 const path = require('path');
 
@@ -113,11 +114,28 @@ const getAnalytics = async (req, res) => {
         ]).limit(10);
 
         // Recent successful activity
-        const recentActivity = await Order.find({ status: 'success' })
+        const recentActivityRaw = await Order.find({ status: 'success' })
             .populate('userId', 'name email')
-            .populate('projects.projectId', 'title')
+            .populate('projects.projectId', 'title images imageKeys')
             .sort({ createdAt: -1 })
             .limit(5);
+
+        const recentActivity = await Promise.all(recentActivityRaw.map(async (order) => {
+            const orderObj = order.toObject();
+            if (orderObj.projects && orderObj.projects.length > 0) {
+                orderObj.projects = await Promise.all(orderObj.projects.map(async (item) => {
+                    if (item.projectId && item.projectId.imageKeys) {
+                        item.projectId.imageUrls = await Promise.all(
+                            item.projectId.imageKeys.map(key => generateSignedUrl(key))
+                        );
+                    } else if (item.projectId) {
+                        item.projectId.imageUrls = [];
+                    }
+                    return item;
+                }));
+            }
+            return orderObj;
+        }));
 
         res.status(200).json({
             success: true,
@@ -321,10 +339,28 @@ const demoteAdmin = async (req, res) => {
  */
 const getOrders = async (req, res) => {
     try {
-        const orders = await Order.find({})
+        const rawOrders = await Order.find({})
             .populate('userId', 'firstName lastName email')
-            .populate('projects.projectId', 'title price')
+            .populate('projects.projectId', 'title price images imageKeys')
             .sort({ createdAt: -1 });
+            
+        // Generate signed URLs for all projects in all orders
+        const orders = await Promise.all(rawOrders.map(async (order) => {
+            const orderObj = order.toObject();
+            if (orderObj.projects && orderObj.projects.length > 0) {
+                orderObj.projects = await Promise.all(orderObj.projects.map(async (item) => {
+                    if (item.projectId && item.projectId.imageKeys) {
+                        item.projectId.imageUrls = await Promise.all(
+                            item.projectId.imageKeys.map(key => generateSignedUrl(key))
+                        );
+                    } else if (item.projectId) {
+                        item.projectId.imageUrls = [];
+                    }
+                    return item;
+                }));
+            }
+            return orderObj;
+        }));
             
         res.status(200).json({ success: true, orders });
     } catch (err) {
