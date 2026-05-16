@@ -115,10 +115,19 @@ const getAnalytics = async (req, res) => {
 
         // Recent successful activity
         const recentActivityRaw = await Order.find({ status: 'success' })
-            .populate('userId', 'name email')
+            .populate('userId', 'name email firstName lastName')
             .populate('projects.projectId', 'title images imageKeys')
             .sort({ createdAt: -1 })
             .limit(5);
+
+        // --- NEW: Coupon Metrics for Dashboard ---
+        const CouponUsage = require('../models/CouponUsage');
+        const couponStats = await CouponUsage.aggregate([
+            { $group: { _id: null, totalSaved: { $sum: "$discountApplied" }, count: { $sum: 1 } } }
+        ]);
+        const totalSavedByUsers = couponStats[0]?.totalSaved || 0;
+        const totalRedemptions = couponStats[0]?.count || 0;
+        // ------------------------------------------
 
         const recentActivity = await Promise.all(recentActivityRaw.map(async (order) => {
             const orderObj = order.toObject();
@@ -146,7 +155,11 @@ const getAnalytics = async (req, res) => {
             popularProjects,
             failedPayments,
             suspiciousActivity,
-            recentActivity
+            recentActivity,
+            couponStats: {
+                totalSaved: totalSavedByUsers,
+                redemptions: totalRedemptions
+            }
         });
     } catch (err) {
         logger.error(`Analytics map failure: ${err.message}`);

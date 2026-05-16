@@ -84,15 +84,20 @@ const getAllCoupons = async (req, res) => {
             .sort({ createdAt: -1 });
 
         // Calculate global analytics
-        const totalDiscountsGiven = await CouponUsage.aggregate([
-            { $group: { _id: null, total: { $sum: "$discountApplied" } } }
+        const usageStats = await CouponUsage.aggregate([
+            { $group: { 
+                _id: null, 
+                totalDiscount: { $sum: "$discountApplied" },
+                redemptionCount: { $sum: 1 }
+            } }
         ]);
 
         res.status(200).json({ 
             success: true, 
             coupons,
             analytics: {
-                totalDiscounts: totalDiscountsGiven[0]?.total || 0,
+                totalDiscounts: usageStats[0]?.totalDiscount || 0,
+                totalRedemptions: usageStats[0]?.redemptionCount || 0,
                 activeCount: coupons.filter(c => c.status === 'Active').length
             }
         });
