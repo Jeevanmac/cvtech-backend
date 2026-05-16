@@ -8,9 +8,12 @@ const couponSchema = new mongoose.Schema(
             unique: true,
             uppercase: true,
             trim: true,
-            minlength: [7, 'Code must be exactly 7 characters'],
-            maxlength: [7, 'Code must be exactly 7 characters'],
-            match: [/^[A-Z0-9]{7}$/, 'Must be a 7-character alphanumeric string']
+            index: true
+        },
+        campaignName: {
+            type: String,
+            required: [true, 'Campaign name is required'],
+            trim: true
         },
         discountPercentage: {
             type: Number,
@@ -18,16 +21,62 @@ const couponSchema = new mongoose.Schema(
             min: [1, 'Minimum discount is 1%'],
             max: [100, 'Maximum discount is 100%']
         },
-        expiresAt: {
+        createdByAdmin: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        usageLimit: {
+            type: Number,
+            default: 100 // Total times this coupon can be used across all users
+        },
+        usedCount: {
+            type: Number,
+            default: 0
+        },
+        expiryDate: {
             type: Date,
-            required: [true, 'Expiration date is required']
+            required: [true, 'Expiration date is required'],
+            index: true
+        },
+        minimumPurchase: {
+            type: Number,
+            default: 0
+        },
+        applicableProjects: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Project'
+            }
+        ],
+        isGlobal: {
+            type: Boolean,
+            default: true
         },
         isActive: {
             type: Boolean,
             default: true
         }
     },
-    { timestamps: true }
+    { 
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    }
 );
+
+// Virtual for remaining count
+couponSchema.virtual('remainingCount').get(function() {
+    return Math.max(0, this.usageLimit - this.usedCount);
+});
+
+// Virtual for status check
+couponSchema.virtual('status').get(function() {
+    const now = new Date();
+    if (!this.isActive) return 'Disabled';
+    if (now > this.expiryDate) return 'Expired';
+    if (this.usedCount >= this.usageLimit) return 'Exhausted';
+    return 'Active';
+});
 
 module.exports = mongoose.model('Coupon', couponSchema);

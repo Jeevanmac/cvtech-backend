@@ -33,7 +33,7 @@ const razorpay = new Razorpay({
  */
 const createOrder = async (req, res) => {
     try {
-        const { projectIds, recaptchaToken } = req.body;
+        const { projectIds, recaptchaToken, couponCode } = req.body;
         
         if (!projectIds || projectIds.length === 0 || !recaptchaToken) {
             return res.status(400).json({ success: false, message: 'No projects provided or ReCAPTCHA absent.' });
@@ -46,19 +46,48 @@ const createOrder = async (req, res) => {
         }
 
         // Calculate total strictly on backend to avoid tampering
-        let totalAmount = 0;
+        let subtotal = 0;
         const projectReferences = [];
         
         for (let pid of projectIds) {
             const proj = await Project.findById(pid);
             if (!proj) return res.status(404).json({ success: false, message: `Project ${pid} not found` });
-            totalAmount += proj.price;
+            subtotal += proj.price;
             projectReferences.push({ projectId: proj._id, priceAtPurchase: proj.price });
         }
 
-        // Create Order intent in Razorpay (Amount format requires smallest currency subunit i.e. paise/cents)
+        let discountAmount = 0;
+        let validatedCoupon = null;
+
+        // Apply coupon if provided
+        if (couponCode) {
+            const Coupon = require('../models/Coupon');
+            const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+            
+            if (coupon) {
+                const now = new Date();
+                const isExpired = now > coupon.expiryDate;
+                const isExhausted = coupon.usedCount >= coupon.usageLimit;
+                const meetsMinPurchase = subtotal >= coupon.minimumPurchase;
+                
+                let isEligible = coupon.isGlobal;
+                if (!isEligible) {
+                    isEligible = projectIds.some(pid => coupon.applicableProjects.includes(pid));
+                }
+
+                if (!isExpired && !isExhausted && meetsMinPurchase && isEligible) {
+                    discountAmount = (subtotal * coupon.discountPercentage) / 100;
+                    validatedCoupon = coupon;
+                    logger.info(`[COUPON] Applied ${coupon.code} (${coupon.discountPercentage}%) to order for User ${req.user._id}`);
+                }
+            }
+        }
+
+        const finalAmount = Math.max(0, subtotal - discountAmount);
+
+        // Create Order intent in Razorpay
         const options = {
-            amount: totalAmount * 100, 
+            amount: Math.round(finalAmount * 100), // Ensure integer paise
             currency: "INR",
             receipt: `receipt_order_${Date.now()}`
         };
@@ -73,7 +102,9 @@ const createOrder = async (req, res) => {
             userId: req.user._id,
             projects: projectReferences,
             razorpayOrderId: rzpOrder.id,
-            totalAmount: totalAmount,
+            totalAmount: finalAmount,
+            discountAmount: discountAmount,
+            couponCode: validatedCoupon ? validatedCoupon.code : null,
             status: 'pending'
         });
         logger.info(`[DATABASE] Pending Order shell saved: ${newOrder._id} (RZP_ID: ${rzpOrder.id})`);
@@ -130,18 +161,34 @@ const verifyPayment = async (req, res) => {
         logger.info(`[DATABASE] Order ${order._id} status updated to SUCCESS`);
 
         // Bind purchases securely to the tracking model of the user to build their dashboard later
-        for (let projInfo of order.projects) {
-            await User.findByIdAndUpdate(req.user._id, {
-                $push: { 
-                    purchases: { 
-                        projectId: projInfo.projectId, 
-                        orderId: order._id,
-                        downloadCount: 0
-                    } 
-                }
-            });
-            logger.info(`[DATABASE] Access unlocked for Project ${projInfo.projectId} to User ${req.user._id}`);
+        logger.info(`[DATABASE] Access unlocked for Project ${projInfo.projectId} to User ${req.user._id}`);
         }
+
+        // --- NEW: Record Coupon Usage if applicable ---
+        if (order.couponCode) {
+            const Coupon = require('../models/Coupon');
+            const CouponUsage = require('../models/CouponUsage');
+            
+            const coupon = await Coupon.findOne({ code: order.couponCode });
+            if (coupon) {
+                await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+                
+                const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+                await CouponUsage.create({
+                    couponId: coupon._id,
+                    userId: req.user._id,
+                    userEmail: req.user.email,
+                    orderId: order._id,
+                    projectIds: order.projects.map(p => p.projectId),
+                    discountApplied: order.discountAmount,
+                    originalPrice: order.totalAmount + order.discountAmount,
+                    finalPrice: order.totalAmount,
+                    ipAddress: clientIp
+                }).catch(err => logger.error(`[COUPON] Usage recording failure: ${err.message}`));
+                logger.info(`[COUPON] Usage recorded for ${order.couponCode} by User ${req.user._id}`);
+            }
+        }
+        // -----------------------------------------------
 
         // Increment Global Purchase Counts dynamically for Fallback Heuristics Native Analytics
         for (let projInfo of order.projects) {
@@ -338,6 +385,30 @@ const webhookPayment = async (req, res) => {
                     await Project.findByIdAndUpdate(projInfo.projectId, { $inc: { purchaseCount: 1 } });
                  }
                  logger.info(`Webhook structurally solidified order identity ${rzpOrderId}`);
+
+                 // --- NEW: Record Coupon Usage if applicable ---
+                 if (orderToUpdate.couponCode) {
+                     const Coupon = require('../models/Coupon');
+                     const CouponUsage = require('../models/CouponUsage');
+                     
+                     const coupon = await Coupon.findOne({ code: orderToUpdate.couponCode });
+                     if (coupon) {
+                         await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+                         
+                         await CouponUsage.create({
+                             couponId: coupon._id,
+                             userId: orderToUpdate.userId,
+                             userEmail: customer?.email || 'unknown',
+                             orderId: orderToUpdate._id,
+                             projectIds: orderToUpdate.projects.map(p => p.projectId),
+                             discountApplied: orderToUpdate.discountAmount,
+                             originalPrice: orderToUpdate.totalAmount + orderToUpdate.discountAmount,
+                             finalPrice: orderToUpdate.totalAmount,
+                             ipAddress: 'WEBHOOK'
+                         }).catch(err => logger.error(`[COUPON] Webhook usage recording failure: ${err.message}`));
+                     }
+                 }
+                 // -----------------------------------------------
 
                  // Generate Admin Notifications for Webhook
                  const admins = await User.find({ role: { $in: ['admin', 'superadmin', 'superuser'] } });

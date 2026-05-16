@@ -1,12 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const { validateCoupon, createCoupon } = require('../controllers/couponController');
+const { 
+    createCoupon, 
+    getAllCoupons, 
+    toggleCouponStatus, 
+    deleteCoupon, 
+    getCouponUsers, 
+    validateCoupon 
+} = require('../controllers/couponController');
 const { protect, isAdmin } = require('../middleware/auth');
+const { strictLimiter } = require('../middleware/rateLimiter');
 
-// Public facing 
-router.post('/validate', protect, validateCoupon);
+// User Routes
+router.post('/validate', protect, strictLimiter, validateCoupon);
 
-// Configuration overrides securely isolated
-router.post('/', protect, isAdmin, createCoupon);
+// Admin Routes
+router.use(protect, isAdmin);
+router.get('/', getAllCoupons);
+router.post('/create', createCoupon);
+router.patch('/:id/toggle', toggleCouponStatus);
+router.delete('/:id', deleteCoupon);
+router.get('/:id/users', getCouponUsers);
 
 module.exports = router;
