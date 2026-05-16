@@ -20,6 +20,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const adminPurchaseRoutes = require('./routes/adminPurchaseRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const path = require('path');
 const { verifyTransporter } = require('./services/mail.service');
 
@@ -63,6 +64,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin/management', adminPurchaseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/admin/analytics', analyticsRoutes);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
